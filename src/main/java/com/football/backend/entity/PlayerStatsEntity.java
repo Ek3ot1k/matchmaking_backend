@@ -1,14 +1,15 @@
 package com.football.backend.entity;
 
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 @Entity
 @Table(name = "player_stats")
 @Getter
 @Setter
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class PlayerStatsEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -24,15 +25,19 @@ public class PlayerStatsEntity {
     @JoinColumn(name = "match_id")
     private MatchEntity match;
 
+    @Builder.Default
     @Column(name = "goals")
-    private Integer goals;
+    private Integer goals=0;
 
+    @Builder.Default
     @Column(name = "assists")
-    private Integer assists;
+    private Integer assists=0;
 
+    @Builder.Default
     @Column(name = "mvp_votes")
-    private Integer mvpVotes;
+    private Integer mvpVotes=0;
 
+    @Builder.Default
     @Column(name = "fastest_player_votes")
-    private Integer fastestPlayerVotes;
+    private Integer fastestPlayerVotes=0;
 }
