@@ -18,24 +18,33 @@ public class JWTUtil {
     @Value("${jwt_secret}")
     private String secret;
 
-    public String generateToken(String username) {
+    public String generateToken(Long userId) {
         return JWT.create()
                 .withSubject("User details")
-                .withClaim("username", username)
+                .withClaim("userId", userId)
                 .withIssuedAt(new Date())
                 .withIssuer("football-matchmaker")
-                // Токен живет 10 часов
-                .withExpiresAt(Date.from(ZonedDateTime.now().plusHours(10).toInstant()))
+                .withExpiresAt(Date.from(
+                        ZonedDateTime.now().plusHours(10).toInstant()
+                ))
                 .sign(Algorithm.HMAC256(secret));
     }
 
-    public String validateTokenAndRetrieveClaim(String token) throws JWTVerificationException {
+    public Long validateTokenAndRetrieveClaim(String token)
+            throws JWTVerificationException {
+
         JWTVerifier verifier = JWT.require(Algorithm.HMAC256(secret))
                 .withSubject("User details")
                 .withIssuer("football-matchmaker")
                 .build();
 
         DecodedJWT jwt = verifier.verify(token);
-        return jwt.getClaim("username").asString();
+
+        Long userId = jwt.getClaim("userId").asLong();
+        if (userId == null) {
+            throw new JWTVerificationException("Missing userId claim");
+        }
+
+        return userId;
     }
 }

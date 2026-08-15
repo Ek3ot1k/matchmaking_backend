@@ -28,4 +28,13 @@ public class UserEntityDetailsService implements UserDetailsService {
 
         return new UserEntityDetails(user.get());
     }
+
+    public UserDetails loadUserById(Long id) throws UsernameNotFoundException {
+        UserEntity user = userRepository.findById(id)
+                .orElseThrow(() -> new UsernameNotFoundException(
+                        "Пользователь с id=" + id + " не найден"
+                ));
+
+        return new UserEntityDetails(user);
+    }
 }

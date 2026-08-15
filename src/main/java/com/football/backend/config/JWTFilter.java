@@ -46,9 +46,9 @@ public class JWTFilter extends OncePerRequestFilter {
             }
 
             try {
-                String username = jwtUtil.validateTokenAndRetrieveClaim(jwt);
+                Long id = jwtUtil.validateTokenAndRetrieveClaim(jwt);
 
-                UserDetails userDetails = userEntityDetailsService.loadUserByUsername(username);
+                UserDetails userDetails = userEntityDetailsService.loadUserById(id);
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         userDetails,
                         null,

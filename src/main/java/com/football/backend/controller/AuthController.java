@@ -1,9 +1,11 @@
 package com.football.backend.controller;
 
 import com.football.backend.dto.TelegramAuthRequest;
+import com.football.backend.dto.TelegramUser;
 import com.football.backend.entity.UserEntity;
 import com.football.backend.security.JWTUtil;
 import com.football.backend.service.AuthService;
+import com.football.backend.service.TelegramInitDataValidator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -13,33 +15,34 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/auth")
 @Slf4j
-@CrossOrigin(origins = "*")
 public class AuthController {
 
     private final AuthService authService;
     private final JWTUtil jwtUtil;
+    private final TelegramInitDataValidator validator;
 
-    public AuthController(AuthService authService, JWTUtil jwtUtil) {
+    public AuthController(AuthService authService,
+                          JWTUtil jwtUtil,
+                          TelegramInitDataValidator validator) {
         this.authService = authService;
         this.jwtUtil = jwtUtil;
+        this.validator = validator;
     }
 
     @PostMapping("/telegram")
-    public ResponseEntity<Map<String,String>> authenticateTelegramUser(
-            @RequestBody TelegramAuthRequest request
-            ){
-        try {
-            log.info("Попытка входа Telegram юзера: {}", request.username());
+    public ResponseEntity<Map<String,String>> authenticateTelegramUser(@RequestBody TelegramAuthRequest request){
+        log.info("Попытка входа юзера в Telegram");
 
-            UserEntity user = authService
-                    .authenticateOrRegister(request.telegramId(), request.username());
-            String token = jwtUtil.generateToken(user.getUsername());
+        TelegramUser telegramUser = validator.validate(request.initData());
 
-            log.info("Пользователь {} успешно авторизован", user.getUsername());
-            return ResponseEntity.ok(Map.of("jwt-token", token));
-        }catch (Exception e){
-            log.error("Ошибка авторизации пользователя {}: {}", request.username(), e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of("error", "Auth failed"));
-        }
+        UserEntity user = authService.authenticateOrRegister(
+                telegramUser.id(),
+                telegramUser.username()
+        );
+
+        String token = jwtUtil.generateToken(user.getId());
+
+        log.info("Telegram юзер с id={} авторизован", telegramUser.id());
+        return ResponseEntity.ok(Map.of("jwt-token", token));
     }
 }
