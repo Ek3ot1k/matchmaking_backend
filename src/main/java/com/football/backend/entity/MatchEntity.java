@@ -9,6 +9,7 @@ import lombok.Setter;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "matches")
@@ -22,7 +23,7 @@ public class MatchEntity {
     private Long id;
 
     @Column(name = "date",nullable = false)
-    private LocalDateTime date;
+    private LocalDateTime dateTime;
 
     @Column(name = "location",nullable = false)
     private String location;
@@ -30,4 +31,10 @@ public class MatchEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "status",nullable = false)
     private MatchStatus status;
+
+    @OneToMany(mappedBy = "match")
+    private List<PlayerStatsEntity> playerStats;
+
+    @OneToMany(mappedBy = "match")
+    private List<MatchParticipantEntity> matchParticipants;
 }

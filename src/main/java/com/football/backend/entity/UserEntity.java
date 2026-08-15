@@ -1,7 +1,10 @@
 package com.football.backend.entity;
 
+import com.football.backend.model.Role;
 import jakarta.persistence.*;
 import lombok.*;
+
+import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -23,8 +26,22 @@ public class UserEntity {
     @Column(name = "username")
     private String username;
 
+    @Builder.Default
+    @Column(name = "role")
+    @Enumerated(EnumType.STRING)
+    private Role role=Role.USER;
+
     @Column(name = "position",nullable = false)
     private String position;
+
+    @OneToMany(mappedBy = "user")
+    private List<PlayerStatsEntity> stats;
+
+    @OneToMany(mappedBy = "user")
+    private List<MatchParticipantEntity> matchParticipants;
+
+    @OneToMany(mappedBy = "user")
+    private List<TransactionEntity> transactions;
 
     @Builder.Default
     @Column(name = "ovr")
