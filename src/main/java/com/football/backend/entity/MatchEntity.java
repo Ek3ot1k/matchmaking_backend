@@ -2,12 +2,11 @@ package com.football.backend.entity;
 
 import com.football.backend.model.MatchStatus;
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.Formula;
+import org.hibernate.annotations.UpdateTimestamp;
 
-import java.sql.Timestamp;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -15,6 +14,9 @@ import java.util.List;
 @Table(name = "matches")
 @Getter
 @Setter
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class MatchEntity {
     @Id
     @Column(name = "id")
@@ -37,4 +39,44 @@ public class MatchEntity {
 
     @OneToMany(mappedBy = "match")
     private List<MatchParticipantEntity> matchParticipants;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organizer_id")
+    private UserEntity organizer;
+
+    @Builder.Default
+    @Column(name = "max_players",nullable = false)
+    private Integer maxPlayers=10;
+
+    @Builder.Default
+    @Version
+    @Column(name = "version",nullable = false)
+    private Long version=0L;
+
+    @Builder.Default
+    @Column(name = "min_players",nullable = false)
+    private Integer minPlayers=8;
+
+    @Builder.Default
+    @Column(name = "duration",nullable = false)
+    private Integer duration=60;
+
+    @Column(name = "description")
+    private String description;
+
+    @Builder.Default
+    @CreationTimestamp
+    @Column(name = "created_at",updatable = false)
+    private LocalDateTime createdAt=LocalDateTime.now();
+
+    @Builder.Default
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt=LocalDateTime.now();
+
+    @Formula("(SELECT count(*) FROM match_participants mp WHERE mp.match_id = id)")
+    private Integer currentPlayers;
+
+    @OneToMany(mappedBy = "match")
+    private List<RatingHistoryEntity> ratingHistory;
 }

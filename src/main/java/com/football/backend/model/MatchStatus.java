@@ -1,5 +1,5 @@
 package com.football.backend.model;
 
 public enum MatchStatus {
-    OPEN,CANCELLED,PLAYED
+    DRAFT, OPEN, FULL, READY, IN_PROGRESS, FINISHED, CANCELLED
 }

@@ -2,9 +2,11 @@ package com.football.backend.entity;
 
 import com.football.backend.model.TransactionStatus;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Min;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 
-import java.sql.Timestamp;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "transactions")
@@ -14,31 +16,45 @@ import java.sql.Timestamp;
 @AllArgsConstructor
 @NoArgsConstructor
 public class TransactionEntity {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Setter(AccessLevel.NONE)
-    @Column(name = "id")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id",nullable = false)
+    @JoinColumn(name = "user_id", nullable = false)
     private UserEntity user;
 
-    @Column(name = "charge_id",unique = true)
-    private String chargeId;
+    @Column(name = "telegram_payment_charge_id", nullable = false, unique = true)
+    private String telegramPaymentChargeId;
 
-    @Column(name = "amount")
+    @Column(name = "provider_payment_charge_id", nullable = false, unique = true)
+    private String providerPaymentChargeId;
+
+    @Column(name = "product_payload", nullable = false)
+    private String productPayload;
+
+    @Min(1)
+    @Column(name = "amount", nullable = false)
     private Integer amount;
 
     @Builder.Default
-    @Column(name = "currency")
-    private String currency="RUB";
+    @Column(name = "currency", nullable = false)
+    private String currency = "RUB";
 
+    // Лучше создать отдельный Enum TransactionStatus (PENDING, SUCCESS, FAILED)
     @Enumerated(EnumType.STRING)
-    @Column(name = "status")
-    private TransactionStatus status;
+    @Builder.Default
+    @Column(name = "status", nullable = false)
+    private TransactionStatus status = TransactionStatus.PENDING;
 
-    @Column(name = "created_at")
-    private Timestamp createdAt;
+    @Column(name = "failure_reason", columnDefinition = "text")
+    private String failureReason;
 
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+
+    @Column(name = "processed_at")
+    private LocalDateTime processedAt;
 }

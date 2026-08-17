@@ -1,6 +1,7 @@
 package com.football.backend.service;
 
 import com.football.backend.entity.UserEntity;
+import com.football.backend.model.Position;
 import com.football.backend.model.Role;
 import com.football.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,7 +33,7 @@ public class AuthService {
         UserEntity newUser=UserEntity.builder()
                 .telegramId(telegramId)
                 .username(username)
-                .position("UNKNOWN")
+                .position(Position.UNKNOWN)
                 .role(Role.USER)
                 .build();
 

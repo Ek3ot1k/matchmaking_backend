@@ -1,10 +1,13 @@
 package com.football.backend.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Min;
 import lombok.*;
 
 @Entity
-@Table(name = "player_stats")
+@Table(name = "player_stats", uniqueConstraints = {
+        @UniqueConstraint(name = "uq_player_match_stats", columnNames = {"user_id", "match_id"})
+})
 @Getter
 @Setter
 @Builder
@@ -18,26 +21,30 @@ public class PlayerStatsEntity {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
+    @JoinColumn(name = "user_id",nullable = false)
     private UserEntity user;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "match_id")
+    @JoinColumn(name = "match_id",nullable = false)
     private MatchEntity match;
 
     @Builder.Default
-    @Column(name = "goals")
+    @Min(0)
+    @Column(name = "goals",nullable = false)
     private Integer goals=0;
 
     @Builder.Default
-    @Column(name = "assists")
+    @Min(0)
+    @Column(name = "assists",nullable = false)
     private Integer assists=0;
 
     @Builder.Default
-    @Column(name = "mvp_votes")
+    @Min(0)
+    @Column(name = "mvp_votes",nullable = false)
     private Integer mvpVotes=0;
 
     @Builder.Default
-    @Column(name = "fastest_player_votes")
+    @Min(0)
+    @Column(name = "fastest_player_votes",nullable = false)
     private Integer fastestPlayerVotes=0;
 }

@@ -1,5 +1,6 @@
 package com.football.backend.entity;
 
+import com.football.backend.model.Position;
 import com.football.backend.model.Role;
 import jakarta.persistence.*;
 import lombok.*;
@@ -31,8 +32,10 @@ public class UserEntity {
     @Enumerated(EnumType.STRING)
     private Role role=Role.USER;
 
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
     @Column(name = "position",nullable = false)
-    private String position;
+    private Position position=Position.MIDFIELDER;
 
     @OneToMany(mappedBy = "user")
     private List<PlayerStatsEntity> stats;
@@ -73,4 +76,7 @@ public class UserEntity {
 
     @Column(name = "is_vip")
     private boolean isVip;
+
+    @OneToMany(mappedBy = "user")
+    private List<RatingHistoryEntity> ratingHistory;
 }

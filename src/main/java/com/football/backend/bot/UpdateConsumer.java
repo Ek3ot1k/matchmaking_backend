@@ -1,6 +1,7 @@
 package com.football.backend.bot;
 
 import com.football.backend.entity.UserEntity;
+import com.football.backend.model.Position;
 import com.football.backend.repository.UserRepository;
 import lombok.SneakyThrows;
 import org.springframework.beans.factory.annotation.Value;
@@ -52,7 +53,7 @@ public class UpdateConsumer implements LongPollingUpdateConsumer {
             UserEntity newUser=new UserEntity();
             newUser.setTelegramId(chatId);
             newUser.setUsername(firstName);
-            newUser.setPosition("CM"); // Даем позицию по умолчанию, потом он сам поменяет в Mini App
+            newUser.setPosition(Position.UNKNOWN); // Даем позицию по умолчанию, потом он сам поменяет в Mini App
             userRepository.save(newUser);
             System.out.println("Новый игрок добавлен в базу: " + firstName);
         }

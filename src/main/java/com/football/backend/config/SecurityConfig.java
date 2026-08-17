@@ -39,7 +39,9 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/v1/auth/telegram",
                                 "/error",
-                                "/swagger-ui/**","/swagger-ui.html","/api-docs/**"
+                                "/swagger-ui/**","/swagger-ui.html","/api-docs/**",
+                                "/v3/api-docs/**",
+                                "/v3/api-docs.yaml"
                         ).permitAll()
                         .anyRequest().authenticated()
                 ).sessionManagement(session->
