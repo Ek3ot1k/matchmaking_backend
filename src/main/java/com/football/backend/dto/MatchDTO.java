@@ -1,11 +1,23 @@
 package com.football.backend.dto;
 
 import com.football.backend.model.MatchStatus;
+import lombok.Data;
 
 import java.time.LocalDateTime;
 
-public record MatchDTO(Long id,
-                       LocalDateTime dateTime,
-                       String location,
-                       MatchStatus status) {
+@Data
+public class MatchDTO {
+    private Long id;
+
+    private String format;          // Формат: "5x5", "8x8" и т.д.
+    private String location;        // Адрес поля/манежа
+    private LocalDateTime dateTime; // Дата и время проведения игры
+
+    private Integer currentPlayers; // Сколько человек уже в составе
+    private Integer maxPlayers;     // Максимальное количество игроков (например, 10)
+
+    private MatchStatus status;     // Статус: OPEN, COMPLETED, CANCELLED
+
+    // Организатор матча
+    private UserDTO organizer;
 }

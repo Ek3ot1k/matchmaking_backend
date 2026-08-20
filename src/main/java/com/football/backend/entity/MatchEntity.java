@@ -79,4 +79,7 @@ public class MatchEntity {
 
     @OneToMany(mappedBy = "match")
     private List<RatingHistoryEntity> ratingHistory;
+
+    @Column(name = "format", length = 10)
+    private String format; // Например: "5x5", "8x8", "11x11"
 }

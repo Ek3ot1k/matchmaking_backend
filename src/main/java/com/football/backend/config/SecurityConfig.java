@@ -24,7 +24,7 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity(prePostEnabled = true)
+@EnableMethodSecurity()
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -74,10 +74,7 @@ public class SecurityConfig {
         return new CorsFilter(source);
     }
 
-    @Bean
-    public ModelMapper modelMapper(){
-        return new ModelMapper();
-    }
+
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {

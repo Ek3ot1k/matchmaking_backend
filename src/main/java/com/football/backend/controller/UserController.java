@@ -1,9 +1,12 @@
 package com.football.backend.controller;
 
+import com.football.backend.dto.PublicPlayerProfileResponse;
+import com.football.backend.dto.UpdateProfileRequest;
 import com.football.backend.dto.UserDTO;
 import com.football.backend.entity.UserEntity;
 import com.football.backend.security.UserEntityDetails;
 import com.football.backend.service.UserService;
+import jakarta.validation.Valid;
 import org.modelmapper.ModelMapper;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -20,14 +23,21 @@ public class UserController {
         this.modelMapper = modelMapper;
     }
 
-    @GetMapping("/{id}")
-    public UserDTO getUser(@PathVariable("id") Long id){
-        return convertToUserDTO(userService.findById(id));
+    @GetMapping("/{id}/profile")
+    public PublicPlayerProfileResponse getUser(@PathVariable("id") Long id){
+        return userService.getPubicProfile(id);
     }
 
     @GetMapping("/me")
     public UserDTO getMyProfile(@AuthenticationPrincipal UserEntityDetails userEntityDetails){
         return convertToUserDTO(userService.findById(userEntityDetails.getUserId()));
+    }
+
+    @PatchMapping("/me")
+    public UserDTO updateMyProfile(@AuthenticationPrincipal UserEntityDetails userDetails,
+                                   @Valid @RequestBody UpdateProfileRequest request){
+        UserEntity updatedUser=userService.updateProfile(userDetails.getUserId(),request);
+        return convertToUserDTO(updatedUser);
     }
 
     private UserDTO convertToUserDTO(UserEntity user){
