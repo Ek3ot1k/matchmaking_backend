@@ -36,19 +36,22 @@ public class MatchService {
     private final MatchParticipantRepository matchParticipantRepository;
     private final MatchWaitlistRepository matchWaitlistRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final TeamBalancerService teamBalancerService;
 
     public MatchService(MatchRepository matchRepository,
                         ModelMapper modelMapper,
                         UserRepository userRepository,
                         MatchParticipantRepository matchParticipantRepository,
                         MatchWaitlistRepository matchWaitlistRepository,
-                        ApplicationEventPublisher eventPublisher) {
+                        ApplicationEventPublisher eventPublisher,
+                        TeamBalancerService teamBalancerService) {
         this.matchRepository = matchRepository;
         this.modelMapper = modelMapper;
         this.userRepository = userRepository;
         this.matchParticipantRepository = matchParticipantRepository;
         this.matchWaitlistRepository = matchWaitlistRepository;
         this.eventPublisher = eventPublisher;
+        this.teamBalancerService = teamBalancerService;
     }
 
     @Transactional(readOnly = true)
@@ -220,6 +223,9 @@ public class MatchService {
             match.setCurrentPlayers(match.getCurrentPlayers()-1);
         }
         matchRepository.save(match);
+
+        // --- АВТОМАТИЧЕСКИЙ ПЕРЕСЧЕТ ---
+        teamBalancerService.rebalanceIfAlreadyBalanced(matchId, match.getOrganizer().getId());
     }
 
     public void joinWaitList(Long matchId,Long userId){
@@ -281,6 +287,11 @@ public class MatchService {
         // 4. Обновляем статус
         participant.setStatus(newStatus);
         matchParticipantRepository.save(participant);
+
+        // --- АВТОМАТИЧЕСКИЙ ПЕРЕСЧЕТ ---
+        if (newStatus == ParticipantStatus.NO_SHOW) {
+            teamBalancerService.rebalanceIfAlreadyBalanced(matchId, organizerId);
+        }
     }
 
 

@@ -7,6 +7,7 @@ import com.football.backend.dto.UpdateMatchRequest;
 import com.football.backend.model.ParticipantStatus;
 import com.football.backend.security.UserEntityDetails;
 import com.football.backend.service.MatchService;
+import com.football.backend.service.TeamBalancerService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -18,9 +19,11 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/matches")
 public class MatchController {
     private final MatchService matchService;
+    private final TeamBalancerService teamBalancerService;
 
-    public MatchController(MatchService matchService) {
+    public MatchController(MatchService matchService, TeamBalancerService teamBalancerService) {
         this.matchService = matchService;
+        this.teamBalancerService = teamBalancerService;
     }
 
     @GetMapping
@@ -101,7 +104,14 @@ public class MatchController {
         return ResponseEntity.ok("Игроку выставлена неявка");
     }
 
-
+    @PostMapping("/{id}/balance")
+    public ResponseEntity<String> balanceTeams(
+            @PathVariable("id") Long matchId,
+            @AuthenticationPrincipal UserEntityDetails userEntityDetails
+    ){
+        teamBalancerService.balanceTeams(matchId,userEntityDetails.getUserId());
+        return ResponseEntity.ok("Составы успешно распределены!");
+    }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<String> deleteMatch(

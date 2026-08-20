@@ -1,6 +1,8 @@
 package com.football.backend.repository;
 
 import com.football.backend.entity.MatchParticipantEntity;
+import com.football.backend.model.ParticipantStatus;
+import com.football.backend.model.TeamColor;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -13,4 +15,6 @@ public interface MatchParticipantRepository extends JpaRepository<MatchParticipa
     boolean existsByMatchIdAndUserId(Long matchId,Long userId);
     Optional<MatchParticipantEntity> findByMatchIdAndUserId(Long matchId, Long userId);
     List<MatchParticipantEntity> findByMatchId(Long matchId);
+    List<MatchParticipantEntity> findByMatchIdAndStatusNot(Long matchId, ParticipantStatus status);
+    boolean existsByMatchIdAndTeamColorNot(Long matchId, TeamColor color);
 }
