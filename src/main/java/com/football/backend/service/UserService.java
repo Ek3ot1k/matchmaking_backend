@@ -3,6 +3,7 @@ package com.football.backend.service;
 import com.football.backend.dto.PlayerMatchHistoryDTO;
 import com.football.backend.dto.PublicPlayerProfileResponse;
 import com.football.backend.dto.UpdateProfileRequest;
+import com.football.backend.dto.UserProfileDTO;
 import com.football.backend.entity.PlayerStatsEntity;
 import com.football.backend.entity.UserEntity;
 import com.football.backend.exceptions.ResourceNotFoundException;
@@ -70,6 +71,44 @@ public class UserService {
                 user.getPass(), user.getDribbling(), user.getDefend(), user.getPhysic(),
                 user.isVip(),
                 matchHistory
+        );
+    }
+
+    public UserProfileDTO getUserProfile(Long userId) {
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("Пользователь не найден"));
+
+        // Достаем агрегированную стату из playerStatsRepository
+        Object[] rawStats = (Object[]) playerStatsRepository.getAggregatedStatsByUserId(userId)[0];
+
+        // Безопасный парсинг данных (база может вернуть null, если игрок еще не играл)
+        int totalMatches = rawStats[0] != null ? ((Number) rawStats[0]).intValue() : 0;
+        int totalGoals = rawStats[1] != null ? ((Number) rawStats[1]).intValue() : 0;
+        int totalAssists = rawStats[2] != null ? ((Number) rawStats[2]).intValue() : 0;
+        int totalMvp = rawStats[3] != null ? ((Number) rawStats[3]).intValue() : 0;
+
+        // Средний рейтинг округляем до 1 знака (например, 7.4)
+        double avgRating = rawStats[4] != null ? Math.round(((Number) rawStats[4]).doubleValue() * 10.0) / 10.0 : 0.0;
+
+        return new UserProfileDTO(
+                user.getId(),
+                user.getFirstName(),
+                user.getLastName(),
+                user.getPosition() != null ? user.getPosition().name() : "Не указана",
+
+                user.getOvr(),
+                user.getPace(),
+                user.getShoot(),
+                user.getPass(),
+                user.getDribbling(),
+                user.getDefend(),
+                user.getPhysic(),
+
+                totalMatches,
+                totalGoals,
+                totalAssists,
+                totalMvp,
+                avgRating
         );
     }
 }

@@ -1,18 +1,14 @@
 package com.football.backend.service;
 
 import com.football.backend.dto.*;
-import com.football.backend.entity.MatchEntity;
-import com.football.backend.entity.MatchParticipantEntity;
-import com.football.backend.entity.MatchWaitlistEntity;
-import com.football.backend.entity.UserEntity;
+import com.football.backend.entity.*;
 import com.football.backend.model.MatchStatus;
 import com.football.backend.model.ParticipantStatus;
 import com.football.backend.model.TeamColor;
-import com.football.backend.repository.MatchParticipantRepository;
-import com.football.backend.repository.MatchRepository;
-import com.football.backend.repository.MatchWaitlistRepository;
-import com.football.backend.repository.UserRepository;
+import com.football.backend.repository.*;
 import com.football.backend.repository.specification.MatchSpecifications;
+import com.football.backend.util.MatchRatingCalculator;
+import com.football.backend.util.PlayerSkillCalculator;
 import jakarta.persistence.EntityNotFoundException;
 import org.modelmapper.ModelMapper;
 import org.springframework.context.ApplicationEventPublisher;
@@ -24,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -37,6 +34,9 @@ public class MatchService {
     private final MatchWaitlistRepository matchWaitlistRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final TeamBalancerService teamBalancerService;
+    private final MatchRatingCalculator ratingCalculator;
+    private final PlayerStatsRepository playerStatsRepository;
+    private final PlayerSkillCalculator playerSkillCalculator;
 
     public MatchService(MatchRepository matchRepository,
                         ModelMapper modelMapper,
@@ -44,7 +44,10 @@ public class MatchService {
                         MatchParticipantRepository matchParticipantRepository,
                         MatchWaitlistRepository matchWaitlistRepository,
                         ApplicationEventPublisher eventPublisher,
-                        TeamBalancerService teamBalancerService) {
+                        TeamBalancerService teamBalancerService,
+                        MatchRatingCalculator ratingCalculator,
+                        PlayerStatsRepository playerStatsRepository,
+                        PlayerSkillCalculator playerSkillCalculator) {
         this.matchRepository = matchRepository;
         this.modelMapper = modelMapper;
         this.userRepository = userRepository;
@@ -52,6 +55,9 @@ public class MatchService {
         this.matchWaitlistRepository = matchWaitlistRepository;
         this.eventPublisher = eventPublisher;
         this.teamBalancerService = teamBalancerService;
+        this.ratingCalculator = ratingCalculator;
+        this.playerStatsRepository = playerStatsRepository;
+        this.playerSkillCalculator = playerSkillCalculator;
     }
 
     @Transactional(readOnly = true)
@@ -291,6 +297,116 @@ public class MatchService {
         // --- АВТОМАТИЧЕСКИЙ ПЕРЕСЧЕТ ---
         if (newStatus == ParticipantStatus.NO_SHOW) {
             teamBalancerService.rebalanceIfAlreadyBalanced(matchId, organizerId);
+        }
+    }
+
+    public void startMatch(Long matchId, Long organizerId){
+        MatchEntity match = getMatchAndValidateOrganizer(matchId, organizerId);
+
+        if (match.getStatus() != MatchStatus.OPEN) {
+            throw new IllegalStateException("Начать можно только матч со статусом OPEN");
+        }
+
+        if (match.getCurrentPlayers() < 2) {
+            throw new IllegalStateException("Слишком мало игроков для старта матча");
+        }
+
+        match.setStatus(MatchStatus.IN_PROGRESS);
+        matchRepository.save(match);
+
+        // TODO: В будущем здесь можно кидать Event, чтобы пушить в ТГ: "Матч начался!"
+    }
+
+
+    @Transactional
+    public void finishMatch(Long matchId, Long organizerId, FinishMatchRequest request) {
+        MatchEntity match = getMatchAndValidateOrganizer(matchId, organizerId);
+
+        // 1. Проверяем окно в 24 часа для уже завершенных матчей
+        if (match.getStatus() == MatchStatus.COMPLETED) {
+            if (match.getFinishedAt() != null && match.getFinishedAt().plusHours(24).isBefore(LocalDateTime.now())) {
+                throw new IllegalStateException("Время редактирования вышло. Прошло больше 24 часов.");
+            }
+        }
+        // 2. Для новых матчей ставим время завершения
+        else if (match.getStatus() == MatchStatus.IN_PROGRESS || match.getStatus() == MatchStatus.OPEN) {
+            match.setFinishedAt(LocalDateTime.now());
+        }
+        else {
+            throw new IllegalStateException("Невозможно завершить матч в статусе " + match.getStatus());
+        }
+
+        // Обновляем счет и статус
+        match.setScoreWhite(request.scoreWhite());
+        match.setScoreDark(request.scoreDark());
+        match.setStatus(MatchStatus.COMPLETED);
+        matchRepository.save(match);
+
+        // 3. Идемпотентное сохранение статистики
+        if (request.playersStats() != null && !request.playersStats().isEmpty()) {
+            List<MatchParticipantEntity> participants = matchParticipantRepository.findByMatchId(matchId);
+
+            // Достаем уже существующую стату из базы (если это повторный запрос, список будет не пустой)
+            List<PlayerStatsEntity> existingStats = playerStatsRepository.findByMatchId(matchId);
+
+            List<PlayerStatsEntity> statsToSave = request.playersStats().stream().map(statDto -> {
+
+                // Проверка, что игрок вообще был в заявке
+                MatchParticipantEntity participant = participants.stream()
+                        .filter(p -> p.getUser().getId().equals(statDto.userId()))
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalArgumentException("Игрок " + statDto.userId() + " не найден в матче"));
+
+                Double calculatedRating = ratingCalculator.calculateRating(
+                        statDto, participant, request.scoreWhite(), request.scoreDark()
+                );
+
+                // ИЩЕМ СТАТУ: если она уже есть — берем её для обновления, если нет — создаем новую
+                PlayerStatsEntity stat = existingStats.stream()
+                        .filter(s -> s.getUser().getId().equals(statDto.userId()))
+                        .findFirst()
+                        .orElse(new PlayerStatsEntity()); // <-- Создаем пустую, если не нашли
+
+                // Заполняем/обновляем поля (Hibernate сам поймет, делать INSERT или UPDATE)
+                stat.setMatch(match);
+                stat.setUser(participant.getUser());
+                stat.setGoals(statDto.goals());
+                stat.setAssists(statDto.assists());
+                stat.setMvpVotes(statDto.mvpVotes());
+                stat.setFastestPlayerVotes(statDto.fastestPlayerVotes());
+                stat.setMatchRating(calculatedRating);
+
+                return stat;
+
+            }).toList();
+
+            // Сохраняем всё батчем
+            playerStatsRepository.saveAll(statsToSave);
+
+            for (PlayerStatsEntity stat:statsToSave){
+                UserEntity user=stat.getUser();
+
+                MatchParticipantEntity participant=participants.stream()
+                        .filter(p -> p.getUser().getId().equals(user.getId()))
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalArgumentException("Игрок не найден в участниках"));
+
+                // Узнаем, сколько пропустила команда этого игрока
+                int concededGoals = 0;
+                if (participant.getTeamColor() == TeamColor.WHITE) {
+                    concededGoals = request.scoreDark(); // Белые пропустили то, что забили Темные
+                } else if (participant.getTeamColor() == TeamColor.DARK) {
+                    concededGoals = request.scoreWhite(); // Темные пропустили то, что забили Белые
+                }
+
+                // Вызываем калькулятор
+                // Он возьмет текущие PAC/SHO/PAS..., прибавит дельту и запишет новые значения обратно в user
+                playerSkillCalculator.updateSkills(user, stat, concededGoals);
+
+                // Сохраняем обновленного юзера в БД
+                userRepository.save(user);
+                match.setUpdatedByOrganizerId(organizerId);
+            }
         }
     }
 

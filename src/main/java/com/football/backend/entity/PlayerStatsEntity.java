@@ -47,4 +47,7 @@ public class PlayerStatsEntity {
     @Min(0)
     @Column(name = "fastest_player_votes",nullable = false)
     private Integer fastestPlayerVotes=0;
+
+    @Column(name = "match_rating")
+    private Double matchRating;
 }

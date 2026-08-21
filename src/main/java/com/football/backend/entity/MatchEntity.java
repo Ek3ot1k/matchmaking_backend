@@ -82,4 +82,16 @@ public class MatchEntity {
 
     @Column(name = "format", length = 10)
     private String format; // Например: "5x5", "8x8", "11x11"
+
+    @Column(name = "score_white")
+    private Integer scoreWhite;
+
+    @Column(name = "score_dark")
+    private Integer scoreDark;
+
+    @Column(name = "finished_at")
+    private LocalDateTime finishedAt;
+
+    @Column(name = "updated_by_organizer_id")
+    private Long updatedByOrganizerId;
 }

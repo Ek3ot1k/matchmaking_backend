@@ -77,6 +77,12 @@ public class UserEntity {
     @Column(name = "is_vip")
     private boolean isVip;
 
+    @Column(name = "first_name")
+    private String firstName;
+
+    @Column(name = "last_name")
+    private String lastName;
+
     @OneToMany(mappedBy = "user")
     private List<RatingHistoryEntity> ratingHistory;
 }

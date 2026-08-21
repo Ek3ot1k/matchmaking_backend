@@ -3,11 +3,13 @@ package com.football.backend.controller;
 import com.football.backend.dto.PublicPlayerProfileResponse;
 import com.football.backend.dto.UpdateProfileRequest;
 import com.football.backend.dto.UserDTO;
+import com.football.backend.dto.UserProfileDTO;
 import com.football.backend.entity.UserEntity;
 import com.football.backend.security.UserEntityDetails;
 import com.football.backend.service.UserService;
 import jakarta.validation.Valid;
 import org.modelmapper.ModelMapper;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,8 +26,9 @@ public class UserController {
     }
 
     @GetMapping("/{id}/profile")
-    public PublicPlayerProfileResponse getUser(@PathVariable("id") Long id){
-        return userService.getPubicProfile(id);
+    public ResponseEntity<UserProfileDTO> getUserProfile(@PathVariable("id") Long id){
+        UserProfileDTO userProfileDTO=userService.getUserProfile(id);
+        return ResponseEntity.ok(userProfileDTO);
     }
 
     @GetMapping("/me")
