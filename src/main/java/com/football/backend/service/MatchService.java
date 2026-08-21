@@ -22,7 +22,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -38,6 +37,7 @@ public class MatchService {
     private final MatchRatingCalculator ratingCalculator;
     private final PlayerStatsRepository playerStatsRepository;
     private final PlayerSkillCalculator playerSkillCalculator;
+    private final NotificationService notificationService;
 
     public MatchService(MatchRepository matchRepository,
                         ModelMapper modelMapper,
@@ -48,7 +48,8 @@ public class MatchService {
                         TeamBalancerService teamBalancerService,
                         MatchRatingCalculator ratingCalculator,
                         PlayerStatsRepository playerStatsRepository,
-                        PlayerSkillCalculator playerSkillCalculator) {
+                        PlayerSkillCalculator playerSkillCalculator,
+                        NotificationService notificationService) {
         this.matchRepository = matchRepository;
         this.modelMapper = modelMapper;
         this.userRepository = userRepository;
@@ -59,6 +60,7 @@ public class MatchService {
         this.ratingCalculator = ratingCalculator;
         this.playerStatsRepository = playerStatsRepository;
         this.playerSkillCalculator = playerSkillCalculator;
+        this.notificationService=notificationService;
     }
 
     @Transactional(readOnly = true)
@@ -102,6 +104,19 @@ public class MatchService {
         }
 
         match.setStatus(MatchStatus.OPEN);
+        MatchEntity savedMatch=matchRepository.save(match);
+
+        List<Long> telegramIds=userRepository.findAllByTelegramIdIsNotNull().stream()
+                .map(UserEntity::getId)
+                .toList();
+
+        String notificationText = String.format(
+                "🔥 Открыт набор на новый матч!\n\n📍 Локация: %s\n⚽ Формат: %s\n\nСкорее заходи в Mini App и занимай место в основном составе!",
+                match.getLocation(),
+                match.getFormat()
+        );
+        notificationService.sendToUsers(telegramIds,notificationText);
+
         return modelMapper.map(matchRepository.save(match), MatchDTO.class);
     }
 
@@ -151,6 +166,18 @@ public class MatchService {
 
         match.setStatus(MatchStatus.CANCELLED);
         matchRepository.save(match);
+
+        List<Long> telegramIds = matchParticipantRepository.findByMatchId(matchId).stream()
+                .map(participant -> participant.getUser().getTelegramId())
+                .filter(id -> id != null) // Защита от NullPointerException
+                .toList();
+
+        String cancelText = String.format(
+                "⚠️ Внимание! Матч на арене %s был отменен организатором. Приносим извинения за неудобства.",
+                match.getLocation()
+        );
+
+        notificationService.sendToUsers(telegramIds, cancelText);
 
         eventPublisher.publishEvent(new MatchCancelledEvent(matchId));
     }
@@ -225,7 +252,11 @@ public class MatchService {
             matchParticipantRepository.save(newParticipant);
             matchWaitlistRepository.delete(waitlistEntry.get());
 
-            // TODO: Отправить Push-уведомление или email счастливчику (luckyUser) о том, что он попал в состав
+            String text = String.format(
+                    "🎉 Отличные новости! Кто-то отменил запись, и вы автоматически переведены из листа ожидания в основной состав!\n\n📍 Арена: %s\n⏳ Не забудьте подтвердить участие в Mini App.",
+                    match.getLocation()
+            );
+            notificationService.sendToUser(luckyUser.getTelegramId(), text);
         }else{
             match.setCurrentPlayers(match.getCurrentPlayers()-1);
         }
@@ -324,13 +355,13 @@ public class MatchService {
     public void finishMatch(Long matchId, Long organizerId, FinishMatchRequest request) {
         MatchEntity match = getMatchAndValidateOrganizer(matchId, organizerId);
 
-        // 1. Проверяем окно в 24 часа для уже завершенных матчей
+        // Проверяем окно в 24 часа для уже завершенных матчей
         if (match.getStatus() == MatchStatus.COMPLETED) {
             if (match.getFinishedAt() != null && match.getFinishedAt().plusHours(24).isBefore(LocalDateTime.now())) {
                 throw new IllegalStateException("Время редактирования вышло. Прошло больше 24 часов.");
             }
         }
-        // 2. Для новых матчей ставим время завершения
+        // Для новых матчей ставим время завершения
         else if (match.getStatus() == MatchStatus.IN_PROGRESS || match.getStatus() == MatchStatus.OPEN) {
             match.setFinishedAt(LocalDateTime.now());
         }
@@ -344,7 +375,7 @@ public class MatchService {
         match.setStatus(MatchStatus.COMPLETED);
         matchRepository.save(match);
 
-        // 3. Идемпотентное сохранение статистики
+        // Идемпотентное сохранение статистики
         if (request.playersStats() != null && !request.playersStats().isEmpty()) {
             List<MatchParticipantEntity> participants = matchParticipantRepository.findByMatchId(matchId);
 

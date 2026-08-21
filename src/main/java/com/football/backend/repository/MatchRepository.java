@@ -20,4 +20,6 @@ public interface MatchRepository extends JpaRepository<MatchEntity,Long>,
     @Query("select m from MatchEntity m where m.id = :id")
     Optional<MatchEntity> findByIdForUpdate(@Param("id") Long id);
     List<MatchEntity> findByStatusAndVotingClosedFalseAndFinishedAtBefore(MatchStatus status, LocalDateTime cutoffTime);
+
+    List<MatchEntity> findByStatus(MatchStatus status);
 }

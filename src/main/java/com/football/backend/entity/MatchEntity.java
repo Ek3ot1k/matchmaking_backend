@@ -98,4 +98,14 @@ public class MatchEntity {
     @Builder.Default
     @Column(name = "voting_closed", nullable = false)
     private Boolean votingClosed = false;
+
+    // Флаги отправленных напоминаний (чтобы не спамить повторно)
+    @Builder.Default
+    private boolean reminder24hSent = false;
+
+    @Builder.Default
+    private boolean reminder2hSent = false;
+
+    @Builder.Default
+    private boolean reminder30minSent = false;
 }

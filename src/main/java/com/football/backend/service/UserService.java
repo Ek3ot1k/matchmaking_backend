@@ -7,6 +7,7 @@ import com.football.backend.dto.UserProfileDTO;
 import com.football.backend.entity.PlayerStatsEntity;
 import com.football.backend.entity.UserEntity;
 import com.football.backend.exceptions.ResourceNotFoundException;
+import com.football.backend.model.Position;
 import com.football.backend.repository.PlayerStatsRepository;
 import com.football.backend.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class UserService {
@@ -110,5 +112,21 @@ public class UserService {
                 totalMvp,
                 avgRating
         );
+    }
+
+    @Transactional
+    public void registerOrUpdateTelegramUser(Long telegramUserId, String firstName) {
+        Optional<UserEntity> existingUser = userRepository.findByTelegramId(telegramUserId);
+
+        if (existingUser.isEmpty()) {
+            UserEntity newUser = UserEntity.builder()
+                    .telegramId(telegramUserId)
+                    .username(firstName)
+                    .position(Position.UNKNOWN)
+                    .build();
+
+            userRepository.save(newUser);
+            System.out.println("Новый игрок добавлен в базу: " + firstName);
+        }
     }
 }
