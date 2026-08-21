@@ -94,4 +94,8 @@ public class MatchEntity {
 
     @Column(name = "updated_by_organizer_id")
     private Long updatedByOrganizerId;
+
+    @Builder.Default
+    @Column(name = "voting_closed", nullable = false)
+    private Boolean votingClosed = false;
 }

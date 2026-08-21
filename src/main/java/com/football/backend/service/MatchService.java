@@ -11,6 +11,7 @@ import com.football.backend.util.MatchRatingCalculator;
 import com.football.backend.util.PlayerSkillCalculator;
 import jakarta.persistence.EntityNotFoundException;
 import org.modelmapper.ModelMapper;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -318,6 +319,7 @@ public class MatchService {
     }
 
 
+    @CacheEvict(value = {"leaderboard_goals", "leaderboard_assists", "leaderboard_mvp", "leaderboard_ga"}, allEntries = true)
     @Transactional
     public void finishMatch(Long matchId, Long organizerId, FinishMatchRequest request) {
         MatchEntity match = getMatchAndValidateOrganizer(matchId, organizerId);

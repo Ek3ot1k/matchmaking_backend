@@ -97,6 +97,17 @@ public class PlayerSkillCalculator {
         return applyBounds((int) Math.round(calculatedOvr));
     }
 
+    public void applyVotingBonuses(UserEntity user, int mvpVotes, int fastestVotes) {
+        if (mvpVotes == 0 && fastestVotes == 0) return; // Если голосов нет, ничего не делаем
+
+        // +1 PHY за каждый голос MVP, +2 PAC за каждый голос Fastest
+        user.setPhysic(applyBounds(user.getPhysic() + mvpVotes));
+        user.setPace(applyBounds(user.getPace() + (fastestVotes * 2)));
+
+        // Обязательно пересчитываем общий OVR!
+        user.setOvr(calculateOvr(user));
+    }
+
     // Утилита для удержания рейтинга в рамках [1 ... 99]
     private int applyBounds(int value) {
         return Math.max(MIN_RATING, Math.min(MAX_RATING, value));

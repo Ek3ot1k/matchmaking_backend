@@ -1,10 +1,13 @@
 package com.football.backend.repository;
 
+import com.football.backend.dto.LeaderboardEntryDTO;
 import com.football.backend.entity.PlayerStatsEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import org.springframework.data.domain.Pageable;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface PlayerStatsRepository extends JpaRepository<PlayerStatsEntity, Long> {
@@ -19,4 +22,57 @@ public interface PlayerStatsRepository extends JpaRepository<PlayerStatsEntity, 
     @Query("SELECT COUNT(s), SUM(s.goals), SUM(s.assists), SUM(s.mvpVotes), AVG(s.matchRating) " +
             "FROM PlayerStatsEntity s WHERE s.user.id = :userId")
     Object[] getAggregatedStatsByUserId(@Param("userId") Long userId);
+
+    // Топ по голам
+    @Query("SELECT new com.football.backend.dto.LeaderboardEntryDTO(" +
+            "u.id, u.firstName, u.lastName, cast(u.position as string), u.ovr, SUM(s.goals)) " +
+            "FROM PlayerStatsEntity s JOIN s.user u JOIN s.match m " +
+            "WHERE m.status = 'COMPLETED' " +
+            "AND m.finishedAt >= :startDate AND m.finishedAt <= :endDate " +
+            "GROUP BY u.id " +
+            "ORDER BY SUM(s.goals) DESC")
+    List<LeaderboardEntryDTO> getTopScorers(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            Pageable pageable); // Pageable нужен, чтобы ограничить результат (например, ТОП-10)
+
+    // Топ по ассистам
+    @Query("SELECT new com.football.backend.dto.LeaderboardEntryDTO(" +
+            "u.id, u.firstName, u.lastName, cast(u.position as string), u.ovr, SUM(s.assists)) " +
+            "FROM PlayerStatsEntity s JOIN s.user u JOIN s.match m " +
+            "WHERE m.status = 'COMPLETED' " +
+            "AND m.finishedAt >= :startDate AND m.finishedAt <= :endDate " +
+            "GROUP BY u.id " +
+            "ORDER BY SUM(s.assists) DESC")
+    List<LeaderboardEntryDTO> getTopAssistant(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            Pageable pageable);
+
+    // Топ по mvp
+    @Query("SELECT new com.football.backend.dto.LeaderboardEntryDTO(" +
+            "u.id, u.firstName, u.lastName, cast(u.position as string), u.ovr, SUM(s.mvpVotes)) " +
+            "FROM PlayerStatsEntity s JOIN s.user u JOIN s.match m " +
+            "WHERE m.status = 'COMPLETED' " +
+            "AND m.finishedAt >= :startDate AND m.finishedAt <= :endDate " +
+            "GROUP BY u.id " +
+            "ORDER BY SUM(s.mvpVotes) DESC")
+    List<LeaderboardEntryDTO> getTopMVP(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            Pageable pageable);
+
+
+    // Топ по Г+П
+    @Query("SELECT new com.football.backend.dto.LeaderboardEntryDTO(" +
+            "u.id, u.firstName, u.lastName, cast(u.position as string), u.ovr, SUM(s.goals+s.assists)) " +
+            "FROM PlayerStatsEntity s JOIN s.user u JOIN s.match m " +
+            "WHERE m.status = 'COMPLETED' " +
+            "AND m.finishedAt >= :startDate AND m.finishedAt <= :endDate " +
+            "GROUP BY u.id " +
+            "ORDER BY SUM(s.goals+s.assists) DESC")
+    List<LeaderboardEntryDTO> getTopGA(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            Pageable pageable);
 }

@@ -1,6 +1,7 @@
 package com.football.backend.repository;
 
 import com.football.backend.entity.MatchEntity;
+import com.football.backend.model.MatchStatus;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -9,6 +10,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 public interface MatchRepository extends JpaRepository<MatchEntity,Long>,
@@ -16,4 +19,5 @@ public interface MatchRepository extends JpaRepository<MatchEntity,Long>,
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select m from MatchEntity m where m.id = :id")
     Optional<MatchEntity> findByIdForUpdate(@Param("id") Long id);
+    List<MatchEntity> findByStatusAndVotingClosedFalseAndFinishedAtBefore(MatchStatus status, LocalDateTime cutoffTime);
 }

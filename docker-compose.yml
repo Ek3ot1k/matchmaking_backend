@@ -29,6 +29,18 @@ services:
 #      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
 #      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
 #      JWT_SECRET: ${JWT_SECRET}
+  redis:
+    image: redis:7-alpine
+    container_name: football-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    # команда, чтобы Redis сохранял данные на диск, а не только в оперативку
+    command: redis-server --save 60 1 --loglevel warning
 
+# Тома (volumes) нужны, чтобы при перезапуске докера данные не удалялись
 volumes:
   pgdata:
+  redis_data:

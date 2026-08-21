@@ -1,13 +1,11 @@
 package com.football.backend.controller;
 
-import com.football.backend.dto.CreateMatchRequest;
-import com.football.backend.dto.MatchDTO;
-import com.football.backend.dto.MatchFilterRequest;
-import com.football.backend.dto.UpdateMatchRequest;
+import com.football.backend.dto.*;
 import com.football.backend.model.ParticipantStatus;
 import com.football.backend.security.UserEntityDetails;
 import com.football.backend.service.MatchService;
 import com.football.backend.service.TeamBalancerService;
+import com.football.backend.service.VoteService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -20,10 +18,14 @@ import org.springframework.web.bind.annotation.*;
 public class MatchController {
     private final MatchService matchService;
     private final TeamBalancerService teamBalancerService;
+    private final VoteService voteService;
 
-    public MatchController(MatchService matchService, TeamBalancerService teamBalancerService) {
+    public MatchController(MatchService matchService,
+                           TeamBalancerService teamBalancerService,
+                           VoteService voteService) {
         this.matchService = matchService;
         this.teamBalancerService = teamBalancerService;
+        this.voteService = voteService;
     }
 
     @GetMapping
@@ -123,7 +125,14 @@ public class MatchController {
         return ResponseEntity.ok("Матч успешно отменен");
     }
 
-
-
+    @PostMapping("/{id}/vote")
+    public ResponseEntity<String> submitVote(
+            @PathVariable("id") Long matchId,
+            @RequestBody @Valid VoteRequestDTO requestDTO,
+            @AuthenticationPrincipal UserEntityDetails userEntityDetails
+            ){
+        voteService.submitVote(matchId,userEntityDetails.getUserId(),requestDTO);
+        return ResponseEntity.ok("Голос успешно учтен!");
+    }
 
 }
