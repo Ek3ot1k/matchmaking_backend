@@ -5,6 +5,7 @@ import com.football.backend.model.Role;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
@@ -85,4 +86,11 @@ public class UserEntity {
 
     @OneToMany(mappedBy = "user")
     private List<RatingHistoryEntity> ratingHistory;
+
+    @Column(name = "vip_until")
+    private LocalDateTime vipUntil;
+
+    public boolean isVip() {
+        return vipUntil != null && vipUntil.isAfter(LocalDateTime.now());
+    }
 }

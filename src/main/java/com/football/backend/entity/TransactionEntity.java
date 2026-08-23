@@ -25,14 +25,8 @@ public class TransactionEntity {
     @JoinColumn(name = "user_id", nullable = false)
     private UserEntity user;
 
-    @Column(name = "telegram_payment_charge_id", nullable = false, unique = true)
-    private String telegramPaymentChargeId;
-
-    @Column(name = "provider_payment_charge_id", nullable = false, unique = true)
-    private String providerPaymentChargeId;
-
-    @Column(name = "product_payload", nullable = false)
-    private String productPayload;
+    @Column(name = "telegram_charge_id", nullable = false, unique = true)
+    private String telegramChargeId;
 
     @Min(1)
     @Column(name = "amount", nullable = false)
@@ -42,19 +36,13 @@ public class TransactionEntity {
     @Column(name = "currency", nullable = false)
     private String currency = "RUB";
 
-    // Лучше создать отдельный Enum TransactionStatus (PENDING, SUCCESS, FAILED)
     @Enumerated(EnumType.STRING)
     @Builder.Default
     @Column(name = "status", nullable = false)
     private TransactionStatus status = TransactionStatus.PENDING;
 
-    @Column(name = "failure_reason", columnDefinition = "text")
-    private String failureReason;
-
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "processed_at")
-    private LocalDateTime processedAt;
 }
