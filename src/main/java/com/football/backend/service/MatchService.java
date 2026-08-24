@@ -4,6 +4,7 @@ import com.football.backend.dto.*;
 import com.football.backend.entity.*;
 import com.football.backend.model.MatchStatus;
 import com.football.backend.model.ParticipantStatus;
+import com.football.backend.model.Position;
 import com.football.backend.model.TeamColor;
 import com.football.backend.repository.*;
 import com.football.backend.repository.specification.MatchSpecifications;
@@ -309,6 +310,7 @@ public class MatchService {
 
         UserEntity user=userRepository.findById(userId)
                 .orElseThrow(()->new EntityNotFoundException("Пользователь не найден"));
+        requireSelectedPosition(user);
         disciplineService.assertCanParticipate(user);
 
         MatchParticipantEntity participant=MatchParticipantEntity.builder()
@@ -399,6 +401,7 @@ public class MatchService {
 
         UserEntity user=userRepository.findById(userId)
                 .orElseThrow(()->new EntityNotFoundException("Пользователь не найден"));
+        requireSelectedPosition(user);
         disciplineService.assertCanParticipate(user);
 
         MatchWaitlistEntity waitlist=MatchWaitlistEntity.builder()
@@ -407,6 +410,12 @@ public class MatchService {
                 .build();
 
         matchWaitlistRepository.save(waitlist);
+    }
+
+    private void requireSelectedPosition(UserEntity user) {
+        if (user.getPosition() == null || user.getPosition() == Position.UNKNOWN) {
+            throw new IllegalStateException("Сначала выберите в профиле свою позицию на поле");
+        }
     }
 
     public void updateParticipantStatus(Long matchId,
