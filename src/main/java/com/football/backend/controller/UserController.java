@@ -10,6 +10,7 @@ import com.football.backend.service.UserService;
 import jakarta.validation.Valid;
 import org.modelmapper.ModelMapper;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -44,6 +45,23 @@ public class UserController {
     }
 
     private UserDTO convertToUserDTO(UserEntity user){
-        return modelMapper.map(user, UserDTO.class);
+        return new UserDTO(
+                user.getId(),
+                user.getTelegramId(),
+                user.getUsername(),
+                user.getFirstName(),
+                user.getLastName(),
+                user.getPosition(),
+                user.getRole(),
+                user.isVip(),
+                user.getVipUntil(),
+                user.getOvr(),
+                user.getPace(),
+                user.getShoot(),
+                user.getPass(),
+                user.getDribbling(),
+                user.getDefend(),
+                user.getPhysic()
+        );
     }
 }

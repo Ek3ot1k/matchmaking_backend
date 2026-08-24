@@ -35,10 +35,7 @@ public class AuthController {
 
         TelegramUser telegramUser = validator.validate(request.initData());
 
-        UserEntity user = authService.authenticateOrRegister(
-                telegramUser.id(),
-                telegramUser.username()
-        );
+        UserEntity user = authService.authenticateOrRegister(telegramUser);
 
         String token = jwtUtil.generateToken(user.getId());
 

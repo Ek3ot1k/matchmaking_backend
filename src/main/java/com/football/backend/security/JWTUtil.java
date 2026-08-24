@@ -14,7 +14,6 @@ import java.util.Date;
 @Component
 public class JWTUtil {
 
-    // Секретный ключ бери из application.properties (например, jwt.secret=mySuperSecretKey...)
     @Value("${jwt_secret}")
     private String secret;
 

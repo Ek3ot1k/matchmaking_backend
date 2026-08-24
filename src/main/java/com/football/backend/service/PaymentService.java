@@ -13,6 +13,7 @@ import org.telegram.telegrambots.bots.DefaultAbsSender;
 import org.telegram.telegrambots.meta.api.methods.invoices.CreateInvoiceLink;
 import org.telegram.telegrambots.meta.api.objects.payments.LabeledPrice;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import org.springframework.context.annotation.Lazy;
 
 import java.time.LocalDateTime;
 
@@ -29,7 +30,7 @@ public class PaymentService {
 
     public PaymentService(UserRepository userRepository,
                           TransactionRepository transactionRepository,
-                          DefaultAbsSender telegramBot) {
+                          @Lazy DefaultAbsSender telegramBot) {
         this.userRepository = userRepository;
         this.transactionRepository = transactionRepository;
         this.telegramBot = telegramBot;
@@ -97,5 +98,26 @@ public class PaymentService {
             user.setVip(true);
             userRepository.save(user);
         }
+    }
+
+    @Transactional
+    public void processRefund(String chargeId) {
+        TransactionEntity transaction = transactionRepository.findByTelegramChargeId(chargeId)
+                .orElseThrow(() -> new EntityNotFoundException("Транзакция с таким chargeId не найдена"));
+
+        if (transaction.getStatus() == TransactionStatus.FAILED ||
+                transaction.getStatus() == TransactionStatus.REFUNDED) {
+            return;
+        }
+
+        transaction.setStatus(TransactionStatus.REFUNDED);
+        transactionRepository.save(transaction);
+
+        UserEntity user = transaction.getUser();
+
+        user.setVipUntil(LocalDateTime.now().minusSeconds(1));
+        user.setVip(false);
+
+        userRepository.save(user);
     }
 }
