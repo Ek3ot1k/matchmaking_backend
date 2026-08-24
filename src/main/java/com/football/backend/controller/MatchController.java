@@ -120,6 +120,16 @@ public class MatchController {
         return ResponseEntity.ok("Составы успешно распределены!");
     }
 
+    @PostMapping("/{id}/finish")
+    public MatchDetailsDTO finishMatch(
+            @PathVariable("id") Long matchId,
+            @AuthenticationPrincipal UserEntityDetails userDetails,
+            @Valid @RequestBody FinishMatchRequest request
+    ) {
+        matchService.finishMatch(matchId, userDetails.getUserId(), request);
+        return matchService.getMatchDetails(matchId);
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<String> deleteMatch(
             @PathVariable("id") Long matchId,
