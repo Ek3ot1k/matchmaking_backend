@@ -63,6 +63,16 @@ public class LeaderboardController {
                 resolveStartDate(startDate), resolveEndDate(endDate), limit));
     }
 
+    @GetMapping("/matches")
+    public ResponseEntity<List<LeaderboardEntryDTO>> getTopByMatches(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
+            @RequestParam(defaultValue = "10") int limit) {
+
+        return ResponseEntity.ok(leaderboardService.getTopByMatches(
+                resolveStartDate(startDate), resolveEndDate(endDate), limit));
+    }
+
     // --- Вспомогательные методы для дефолтных дат (За всё время) ---
 
     private LocalDateTime resolveStartDate(LocalDateTime startDate) {

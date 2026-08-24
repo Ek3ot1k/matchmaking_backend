@@ -92,11 +92,29 @@ public class UserService {
         // Средний рейтинг округляем до 1 знака (например, 7.4)
         double avgRating = rawStats[4] != null ? Math.round(((Number) rawStats[4]).doubleValue() * 10.0) / 10.0 : 0.0;
 
+        List<PlayerMatchHistoryDTO> recentMatches = playerStatsRepository.findRecentMatchesByUserId(userId)
+                .stream()
+                .limit(10)
+                .map(stat -> new PlayerMatchHistoryDTO(
+                        stat.getMatch().getId(),
+                        stat.getMatch().getDateTime(),
+                        stat.getMatch().getLocation(),
+                        stat.getGoals(),
+                        stat.getAssists(),
+                        stat.getMvpVotes()
+                ))
+                .toList();
+
         return new UserProfileDTO(
                 user.getId(),
+                user.getUsername(),
                 user.getFirstName(),
                 user.getLastName(),
+                user.getAvatarUrl(),
                 user.getPosition() != null ? user.getPosition().name() : "Не указана",
+                user.getRole(),
+                user.isVip(),
+                user.getVipUntil(),
 
                 user.getOvr(),
                 user.getPace(),
@@ -110,7 +128,8 @@ public class UserService {
                 totalGoals,
                 totalAssists,
                 totalMvp,
-                avgRating
+                avgRating,
+                recentMatches
         );
     }
 

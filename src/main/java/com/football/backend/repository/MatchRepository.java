@@ -22,4 +22,11 @@ public interface MatchRepository extends JpaRepository<MatchEntity,Long>,
     List<MatchEntity> findByStatusAndVotingClosedFalseAndFinishedAtBefore(MatchStatus status, LocalDateTime cutoffTime);
 
     List<MatchEntity> findByStatus(MatchStatus status);
+
+    List<MatchEntity> findByStatusAndResultVotingEndsAtLessThanEqual(
+            MatchStatus status,
+            LocalDateTime cutoffTime
+    );
+
+    List<MatchEntity> findByStatusInOrderByResultVotingEndsAtAsc(List<MatchStatus> statuses);
 }

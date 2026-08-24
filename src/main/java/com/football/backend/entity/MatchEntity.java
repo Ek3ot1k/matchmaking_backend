@@ -95,6 +95,18 @@ public class MatchEntity {
     @Column(name = "updated_by_organizer_id")
     private Long updatedByOrganizerId;
 
+    @Column(name = "result_voting_started_at")
+    private LocalDateTime resultVotingStartedAt;
+
+    @Column(name = "result_voting_ends_at")
+    private LocalDateTime resultVotingEndsAt;
+
+    @Column(name = "result_eligible_voters")
+    private Integer resultEligibleVoters;
+
+    @Column(name = "result_confirmations_required")
+    private Integer resultConfirmationsRequired;
+
     @Builder.Default
     @Column(name = "voting_closed", nullable = false)
     private Boolean votingClosed = false;

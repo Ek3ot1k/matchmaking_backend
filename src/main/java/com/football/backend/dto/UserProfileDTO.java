@@ -1,10 +1,20 @@
 package com.football.backend.dto;
 
+import com.football.backend.model.Role;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
 public record UserProfileDTO(
         Long userId,
+        String username,
         String firstName,
         String lastName,
+        String avatarUrl,
         String position,
+        Role role,
+        Boolean isVip,
+        LocalDateTime vipUntil,
 
         // Скиллы
         Integer ovr,
@@ -20,5 +30,6 @@ public record UserProfileDTO(
         Integer totalGoals,
         Integer totalAssists,
         Integer totalMvp,
-        Double averageRating
+        Double averageRating,
+        List<PlayerMatchHistoryDTO> recentMatches
 ) {}

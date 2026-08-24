@@ -24,6 +24,9 @@ public class AuthService {
     @Value("${telegram.bot.token}") // Токен твоего бота из properties
     private String botToken;
 
+    @Value("${app.admin.telegram-ids:}")
+    private String adminTelegramIds;
+
     public AuthService(UserRepository userRepository) {
         this.userRepository = userRepository;
     }
@@ -83,6 +86,10 @@ public class AuthService {
             user.setFirstName(tgUser.first_name());
             user.setLastName(tgUser.last_name());
             user.setUsername(tgUser.username());
+            user.setAvatarUrl(tgUser.photo_url());
+            if (isConfiguredAdmin(tgUser.id())) {
+                user.setRole(Role.ADMIN);
+            }
 
             return userRepository.save(user);
         }
@@ -93,10 +100,19 @@ public class AuthService {
                 .firstName(tgUser.first_name())
                 .lastName(tgUser.last_name())
                 .username(tgUser.username())
+                .avatarUrl(tgUser.photo_url())
                 .position(Position.UNKNOWN)
-                .role(Role.USER)
+                .role(isConfiguredAdmin(tgUser.id()) ? Role.ADMIN : Role.USER)
                 .build();
 
         return userRepository.save(newUser);
+    }
+
+    private boolean isConfiguredAdmin(Long telegramId) {
+        if (telegramId == null || adminTelegramIds == null || adminTelegramIds.isBlank()) return false;
+        return Arrays.stream(adminTelegramIds.split(","))
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .anyMatch(value -> value.equals(String.valueOf(telegramId)));
     }
 }

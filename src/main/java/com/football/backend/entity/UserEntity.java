@@ -84,6 +84,9 @@ public class UserEntity {
     @Column(name = "last_name")
     private String lastName;
 
+    @Column(name = "avatar_url", length = 1000)
+    private String avatarUrl;
+
     @OneToMany(mappedBy = "user")
     private List<RatingHistoryEntity> ratingHistory;
 

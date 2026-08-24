@@ -4,6 +4,7 @@ import com.football.backend.dto.*;
 import com.football.backend.model.ParticipantStatus;
 import com.football.backend.security.UserEntityDetails;
 import com.football.backend.service.MatchService;
+import com.football.backend.service.MatchResultService;
 import com.football.backend.service.TeamBalancerService;
 import com.football.backend.service.VoteService;
 import jakarta.validation.Valid;
@@ -19,13 +20,16 @@ public class MatchController {
     private final MatchService matchService;
     private final TeamBalancerService teamBalancerService;
     private final VoteService voteService;
+    private final MatchResultService matchResultService;
 
     public MatchController(MatchService matchService,
                            TeamBalancerService teamBalancerService,
-                           VoteService voteService) {
+                           VoteService voteService,
+                           MatchResultService matchResultService) {
         this.matchService = matchService;
         this.teamBalancerService = teamBalancerService;
         this.voteService = voteService;
+        this.matchResultService = matchResultService;
     }
 
     @GetMapping
@@ -36,6 +40,7 @@ public class MatchController {
 
     @GetMapping("/{id}")
     public MatchDetailsDTO getMatch(@PathVariable("id") Long matchId) {
+        matchResultService.finalizeIfExpired(matchId);
         return matchService.getMatchDetails(matchId);
     }
 
@@ -128,6 +133,23 @@ public class MatchController {
     ) {
         matchService.finishMatch(matchId, userDetails.getUserId(), request);
         return matchService.getMatchDetails(matchId);
+    }
+
+    @GetMapping("/{id}/result-voting")
+    public ResultVotingSummaryDTO getResultVoting(
+            @PathVariable("id") Long matchId,
+            @AuthenticationPrincipal UserEntityDetails userDetails
+    ) {
+        return matchResultService.getSummary(matchId, userDetails.getUserId());
+    }
+
+    @PostMapping("/{id}/result-voting/vote")
+    public ResultVotingSummaryDTO voteForResult(
+            @PathVariable("id") Long matchId,
+            @AuthenticationPrincipal UserEntityDetails userDetails,
+            @Valid @RequestBody ResultVoteRequest request
+    ) {
+        return matchResultService.vote(matchId, userDetails.getUserId(), request);
     }
 
     @DeleteMapping("/{id}")

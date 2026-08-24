@@ -4,5 +4,6 @@ public record TelegramUser(
         Long id,
         String username,
         String first_name,
-        String last_name
+        String last_name,
+        String photo_url
 ) {}

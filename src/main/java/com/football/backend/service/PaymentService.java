@@ -47,7 +47,7 @@ public class PaymentService {
 
         CreateInvoiceLink createInvoiceLink = CreateInvoiceLink.builder()
                 .title("VIP Статус на 30 дней")
-                .description("Золотая карточка профиля и приоритет в листе ожидания")
+                .description("Золотая карточка профиля и VIP-оформление на 30 дней")
                 .payload("VIP_30_DAYS_" + userId) // Важный параметр! По нему мы поймем, за что заплатили
                 .providerToken(providerToken)
                 .currency("XTR") // XTR = Telegram Stars

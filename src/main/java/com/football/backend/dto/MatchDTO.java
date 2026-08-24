@@ -21,6 +21,10 @@ public class MatchDTO {
     private Integer scoreWhite;
     private Integer scoreDark;
 
+    private LocalDateTime resultVotingEndsAt;
+    private Integer resultEligibleVoters;
+    private Integer resultConfirmationsRequired;
+
     // Организатор матча
     private UserDTO organizer;
 }

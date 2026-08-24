@@ -53,4 +53,9 @@ public class LeaderboardService {
         return playerStatsRepository.getTopGA(seasonStart,seasonEnd,pageRequest);
     }
 
+    @Cacheable(value = "leaderboard_matches", key = "#seasonStart.toString() + '-' + #seasonEnd.toString()")
+    public List<LeaderboardEntryDTO> getTopByMatches(LocalDateTime seasonStart, LocalDateTime seasonEnd, int limit) {
+        return playerStatsRepository.getTopByMatches(seasonStart, seasonEnd, PageRequest.of(0, limit));
+    }
+
 }

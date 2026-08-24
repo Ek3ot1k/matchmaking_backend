@@ -11,6 +11,7 @@ public record UserDTO(
         String username,
         String firstName,
         String lastName,
+        String avatarUrl,
         Position position,
         Role role,
         boolean isVip,

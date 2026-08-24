@@ -15,6 +15,9 @@ public record MatchDetailsDTO(
         MatchStatus status,
         Integer scoreWhite,
         Integer scoreDark,
+        LocalDateTime resultVotingEndsAt,
+        Integer resultEligibleVoters,
+        Integer resultConfirmationsRequired,
         UserDTO organizer,
         List<MatchParticipantDetailsDTO> participants,
         List<MatchWaitlistDetailsDTO> waitlist

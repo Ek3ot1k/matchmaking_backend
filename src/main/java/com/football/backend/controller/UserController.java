@@ -32,6 +32,11 @@ public class UserController {
         return ResponseEntity.ok(userProfileDTO);
     }
 
+    @GetMapping("/me/profile")
+    public UserProfileDTO getMyFullProfile(@AuthenticationPrincipal UserEntityDetails userEntityDetails) {
+        return userService.getUserProfile(userEntityDetails.getUserId());
+    }
+
     @GetMapping("/me")
     public UserDTO getMyProfile(@AuthenticationPrincipal UserEntityDetails userEntityDetails){
         return convertToUserDTO(userService.findById(userEntityDetails.getUserId()));
@@ -51,6 +56,7 @@ public class UserController {
                 user.getUsername(),
                 user.getFirstName(),
                 user.getLastName(),
+                user.getAvatarUrl(),
                 user.getPosition(),
                 user.getRole(),
                 user.isVip(),

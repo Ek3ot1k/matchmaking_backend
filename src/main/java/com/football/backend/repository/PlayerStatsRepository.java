@@ -13,19 +13,21 @@ import java.util.List;
 public interface PlayerStatsRepository extends JpaRepository<PlayerStatsEntity, Long> {
 
     // Достаем статистику юзера вместе с данными матча, сортируем от новых к старым
-    @Query("SELECT p FROM PlayerStatsEntity p JOIN FETCH p.match m WHERE p.user.id = :userId ORDER BY m.dateTime DESC")
+    @Query("SELECT p FROM PlayerStatsEntity p JOIN FETCH p.match m " +
+            "WHERE p.user.id = :userId AND m.status = 'COMPLETED' ORDER BY m.dateTime DESC")
     List<PlayerStatsEntity> findRecentMatchesByUserId(@Param("userId") Long userId);
     List<PlayerStatsEntity> findByMatchId(Long matchId);
 
     // Spring Data JPA сам преобразует Object[] в нужные типы
     // [0] - count(matches), [1] - sum(goals), [2] - sum(assists), [3] - sum(mvp), [4] - avg(rating)
     @Query("SELECT COUNT(s), SUM(s.goals), SUM(s.assists), SUM(s.mvpVotes), AVG(s.matchRating) " +
-            "FROM PlayerStatsEntity s WHERE s.user.id = :userId")
+            "FROM PlayerStatsEntity s JOIN s.match m " +
+            "WHERE s.user.id = :userId AND m.status = 'COMPLETED'")
     Object[] getAggregatedStatsByUserId(@Param("userId") Long userId);
 
     // Топ по голам
     @Query("SELECT new com.football.backend.dto.LeaderboardEntryDTO(" +
-            "u.id, u.firstName, u.lastName, cast(u.position as string), u.ovr, SUM(s.goals)) " +
+            "u.id, u.firstName, u.lastName, u.avatarUrl, cast(u.position as string), u.ovr, SUM(s.goals)) " +
             "FROM PlayerStatsEntity s JOIN s.user u JOIN s.match m " +
             "WHERE m.status = 'COMPLETED' " +
             "AND m.finishedAt >= :startDate AND m.finishedAt <= :endDate " +
@@ -38,7 +40,7 @@ public interface PlayerStatsRepository extends JpaRepository<PlayerStatsEntity, 
 
     // Топ по ассистам
     @Query("SELECT new com.football.backend.dto.LeaderboardEntryDTO(" +
-            "u.id, u.firstName, u.lastName, cast(u.position as string), u.ovr, SUM(s.assists)) " +
+            "u.id, u.firstName, u.lastName, u.avatarUrl, cast(u.position as string), u.ovr, SUM(s.assists)) " +
             "FROM PlayerStatsEntity s JOIN s.user u JOIN s.match m " +
             "WHERE m.status = 'COMPLETED' " +
             "AND m.finishedAt >= :startDate AND m.finishedAt <= :endDate " +
@@ -51,7 +53,7 @@ public interface PlayerStatsRepository extends JpaRepository<PlayerStatsEntity, 
 
     // Топ по mvp
     @Query("SELECT new com.football.backend.dto.LeaderboardEntryDTO(" +
-            "u.id, u.firstName, u.lastName, cast(u.position as string), u.ovr, SUM(s.mvpVotes)) " +
+            "u.id, u.firstName, u.lastName, u.avatarUrl, cast(u.position as string), u.ovr, SUM(s.mvpVotes)) " +
             "FROM PlayerStatsEntity s JOIN s.user u JOIN s.match m " +
             "WHERE m.status = 'COMPLETED' " +
             "AND m.finishedAt >= :startDate AND m.finishedAt <= :endDate " +
@@ -65,13 +67,26 @@ public interface PlayerStatsRepository extends JpaRepository<PlayerStatsEntity, 
 
     // Топ по Г+П
     @Query("SELECT new com.football.backend.dto.LeaderboardEntryDTO(" +
-            "u.id, u.firstName, u.lastName, cast(u.position as string), u.ovr, SUM(s.goals+s.assists)) " +
+            "u.id, u.firstName, u.lastName, u.avatarUrl, cast(u.position as string), u.ovr, SUM(s.goals+s.assists)) " +
             "FROM PlayerStatsEntity s JOIN s.user u JOIN s.match m " +
             "WHERE m.status = 'COMPLETED' " +
             "AND m.finishedAt >= :startDate AND m.finishedAt <= :endDate " +
             "GROUP BY u.id " +
             "ORDER BY SUM(s.goals+s.assists) DESC")
     List<LeaderboardEntryDTO> getTopGA(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            Pageable pageable);
+
+    // Топ по числу подтверждённых сыгранных матчей
+    @Query("SELECT new com.football.backend.dto.LeaderboardEntryDTO(" +
+            "u.id, u.firstName, u.lastName, u.avatarUrl, cast(u.position as string), u.ovr, COUNT(s)) " +
+            "FROM PlayerStatsEntity s JOIN s.user u JOIN s.match m " +
+            "WHERE m.status = 'COMPLETED' " +
+            "AND m.finishedAt >= :startDate AND m.finishedAt <= :endDate " +
+            "GROUP BY u.id " +
+            "ORDER BY COUNT(s) DESC")
+    List<LeaderboardEntryDTO> getTopByMatches(
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate,
             Pageable pageable);
