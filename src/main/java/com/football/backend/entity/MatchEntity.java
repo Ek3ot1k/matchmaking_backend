@@ -57,7 +57,7 @@ public class MatchEntity {
 
     @Builder.Default
     @Column(name = "min_players",nullable = false)
-    private Integer minPlayers=8;
+    private Integer minPlayers=10;
 
     @Builder.Default
     @Column(name = "duration",nullable = false)

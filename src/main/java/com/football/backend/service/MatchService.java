@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.text.Normalizer;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -159,6 +160,7 @@ public class MatchService {
                 .location(request.location())
                 .dateTime(request.dateTime())
                 .duration(MatchEntity.MAX_DURATION_MINUTES)
+                .minPlayers(10)
                 .maxPlayers(request.maxPlayers())
                 .currentPlayers(1)
                 .status(MatchStatus.DRAFT)
@@ -289,7 +291,7 @@ public class MatchService {
             throw new IllegalStateException("Регистрация на этот матч закрыта (матч отменен или завершен)");
         }
 
-        if(match.getDateTime().isBefore(LocalDateTime.now())){
+        if(match.getDateTime().isBefore(LocalDateTime.now(ZoneId.of("Europe/Moscow")))){
             throw new IllegalStateException("Матч уже начался или прошел. Запись невозможна.");
         }
 
@@ -328,7 +330,7 @@ public class MatchService {
             throw new IllegalStateException("Отписаться можно только от активного матча");
         }
 
-        if (!LocalDateTime.now().isBefore(match.getDateTime())) {
+        if (!LocalDateTime.now(ZoneId.of("Europe/Moscow")).isBefore(match.getDateTime())) {
             throw new IllegalStateException("После начала матча отменить участие нельзя. Организатор отметит присутствие или неявку.");
         }
 
@@ -378,7 +380,7 @@ public class MatchService {
             throw new IllegalStateException("Регистрация закрыта");
         }
 
-        if(match.getDateTime().isBefore(LocalDateTime.now())){
+        if(match.getDateTime().isBefore(LocalDateTime.now(ZoneId.of("Europe/Moscow")))){
             throw new IllegalStateException("Матч уже начался или прошел. Встать в очередь невозможно.");
         }
 
@@ -419,7 +421,7 @@ public class MatchService {
         }
 
         if (newStatus == ParticipantStatus.NO_SHOW) {
-            if (LocalDateTime.now().isBefore(match.getDateTime())) {
+            if (LocalDateTime.now(ZoneId.of("Europe/Moscow")).isBefore(match.getDateTime())) {
                 throw new IllegalStateException("Неявку можно поставить только после начала матча");
             }
             if (match.getStatus() != MatchStatus.OPEN && match.getStatus() != MatchStatus.IN_PROGRESS) {
@@ -461,8 +463,13 @@ public class MatchService {
             throw new IllegalStateException("Начать можно только матч со статусом OPEN");
         }
 
-        if (match.getCurrentPlayers() < 2) {
-            throw new IllegalStateException("Слишком мало игроков для старта матча");
+        if (LocalDateTime.now(ZoneId.of("Europe/Moscow")).isBefore(match.getDateTime())) {
+            throw new IllegalStateException("Матч нельзя начать раньше назначенного времени");
+        }
+
+        long activePlayers = matchParticipantRepository.findByMatchIdAndStatusNot(matchId, ParticipantStatus.NO_SHOW).size();
+        if (activePlayers < 10) {
+            throw new IllegalStateException("Для старта нужно минимум 10 игроков");
         }
 
         match.setStatus(MatchStatus.IN_PROGRESS);

@@ -15,12 +15,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
 public class MatchResultService {
+    private static final ZoneId APP_ZONE = ZoneId.of("Europe/Moscow");
     private static final List<String> LEADERBOARD_CACHES = List.of(
             "leaderboard_goals", "leaderboard_assists", "leaderboard_mvp", "leaderboard_ga"
     );
@@ -75,12 +77,16 @@ public class MatchResultService {
         if (match.getOrganizer().isOfficiallyBanned()) {
             throw new AccessDeniedException("Во время блокировки нельзя отправлять официальный протокол");
         }
-        if (LocalDateTime.now().isBefore(match.getDateTime())) {
-            throw new IllegalStateException("Протокол можно отправить только после начала матча");
+        if (match.getStatus() != MatchStatus.IN_PROGRESS) {
+            throw new IllegalStateException("Протокол доступен только для начатого матча");
         }
 
-        if (match.getStatus() != MatchStatus.OPEN && match.getStatus() != MatchStatus.IN_PROGRESS) {
-            throw new IllegalStateException("Протокол можно отправить только для открытого или начатого матча");
+        int duration = Math.min(
+                Optional.ofNullable(match.getDuration()).orElse(MatchEntity.MAX_DURATION_MINUTES),
+                MatchEntity.MAX_DURATION_MINUTES
+        );
+        if (LocalDateTime.now(APP_ZONE).isBefore(match.getDateTime().plusMinutes(duration))) {
+            throw new IllegalStateException("Протокол можно отправить только после завершения матча");
         }
 
         List<MatchParticipantEntity> eligible = participantRepository

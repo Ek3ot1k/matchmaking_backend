@@ -23,6 +23,12 @@ public interface MatchRepository extends JpaRepository<MatchEntity,Long>,
 
     List<MatchEntity> findByStatus(MatchStatus status);
 
+    /**
+     * Матчи, чьё запланированное время уже наступило. Нужны планировщику,
+     * который закрывает набор строго в момент начала матча.
+     */
+    List<MatchEntity> findByStatusAndDateTimeLessThanEqual(MatchStatus status, LocalDateTime dateTime);
+
     List<MatchEntity> findByStatusAndResultVotingEndsAtLessThanEqual(
             MatchStatus status,
             LocalDateTime cutoffTime
