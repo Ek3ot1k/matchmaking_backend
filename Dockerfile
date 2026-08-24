@@ -1,13 +1,17 @@
-# Используем образ с Java 24, раз она у тебя в логах
-FROM eclipse-temurin:24-jdk-alpine
-
+# Сборка приложения прямо на Render: папка target не требуется в репозитории.
+FROM eclipse-temurin:21-jdk-alpine AS build
 WORKDIR /app
 
-# Копируем собранный jar-файл
-COPY target/*.jar app.jar
+COPY .mvn .mvn
+COPY mvnw pom.xml ./
+RUN chmod +x mvnw && ./mvnw dependency:go-offline -B
 
-# Открываем стандартный порт Спринга
+COPY src src
+RUN ./mvnw clean package -DskipTests -B
+
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+COPY --from=build /app/target/*.jar app.jar
+
 EXPOSE 8080
-
-# Запускаем приложение
 ENTRYPOINT ["java", "-jar", "app.jar"]
