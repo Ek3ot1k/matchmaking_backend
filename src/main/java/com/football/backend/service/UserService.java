@@ -21,10 +21,14 @@ import java.util.Optional;
 public class UserService {
     private final UserRepository userRepository;
     private final PlayerStatsRepository playerStatsRepository;
+    private final UserDisciplineService disciplineService;
 
-    public UserService(UserRepository userRepository, PlayerStatsRepository playerStatsRepository) {
+    public UserService(UserRepository userRepository,
+                       PlayerStatsRepository playerStatsRepository,
+                       UserDisciplineService disciplineService) {
         this.userRepository = userRepository;
         this.playerStatsRepository = playerStatsRepository;
+        this.disciplineService = disciplineService;
     }
 
     public UserEntity findByUsername(String username){
@@ -129,6 +133,11 @@ public class UserService {
                 totalAssists,
                 totalMvp,
                 avgRating,
+                user.isOfficiallyBanned(),
+                user.isPermanentlyBanned(),
+                user.getBannedUntil(),
+                user.getBanReason(),
+                disciplineService.warningsInLast30Days(userId),
                 recentMatches
         );
     }
@@ -140,12 +149,15 @@ public class UserService {
         if (existingUser.isEmpty()) {
             UserEntity newUser = UserEntity.builder()
                     .telegramId(telegramUserId)
-                    .username(firstName)
+                    .firstName(firstName)
                     .position(Position.UNKNOWN)
                     .build();
 
             userRepository.save(newUser);
             System.out.println("Новый игрок добавлен в базу: " + firstName);
+        } else if (firstName != null && !firstName.equals(existingUser.get().getFirstName())) {
+            existingUser.get().setFirstName(firstName);
+            userRepository.save(existingUser.get());
         }
     }
 }

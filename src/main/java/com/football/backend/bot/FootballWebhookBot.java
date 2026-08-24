@@ -59,7 +59,7 @@ public class FootballWebhookBot extends SpringWebhookBot {
 
                 SendMessage message = new SendMessage();
                 message.setChatId(update.getMessage().getChatId().toString());
-                message.setText("Привет, " + firstName + "! Открыть приложение 👇");
+                message.setText(BotMessages.start(firstName));
 
                 InlineKeyboardButton webAppButton = new InlineKeyboardButton();
                 webAppButton.setText("⚽ Открыть Mini App");

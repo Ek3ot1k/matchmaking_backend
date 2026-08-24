@@ -4,6 +4,7 @@ import com.football.backend.model.Position;
 import com.football.backend.model.Role;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -93,7 +94,25 @@ public class UserEntity {
     @Column(name = "vip_until")
     private LocalDateTime vipUntil;
 
+    @Builder.Default
+    @ColumnDefault("false")
+    @Column(name = "permanently_banned", nullable = false)
+    private boolean permanentlyBanned = false;
+
+    @Column(name = "banned_until")
+    private LocalDateTime bannedUntil;
+
+    @Column(name = "ban_reason", length = 1000)
+    private String banReason;
+
+    @Column(name = "last_no_show_ban_at")
+    private LocalDateTime lastNoShowBanAt;
+
     public boolean isVip() {
         return vipUntil != null && vipUntil.isAfter(LocalDateTime.now());
+    }
+
+    public boolean isOfficiallyBanned() {
+        return permanentlyBanned || (bannedUntil != null && bannedUntil.isAfter(LocalDateTime.now()));
     }
 }

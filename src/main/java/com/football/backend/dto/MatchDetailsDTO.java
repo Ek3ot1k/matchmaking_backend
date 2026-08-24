@@ -10,6 +10,7 @@ public record MatchDetailsDTO(
         String format,
         String location,
         LocalDateTime dateTime,
+        Integer duration,
         Integer currentPlayers,
         Integer maxPlayers,
         MatchStatus status,

@@ -12,6 +12,7 @@ public class MatchDTO {
     private String format;          // Формат: "5x5", "8x8" и т.д.
     private String location;        // Адрес поля/манежа
     private LocalDateTime dateTime; // Дата и время проведения игры
+    private Integer duration;       // Длительность, максимум 30 минут
 
     private Integer currentPlayers; // Сколько человек уже в составе
     private Integer maxPlayers;     // Максимальное количество игроков (например, 10)

@@ -17,8 +17,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.Normalizer;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -38,6 +40,7 @@ public class MatchService {
     private final PlayerSkillCalculator playerSkillCalculator;
     private final NotificationService notificationService;
     private final MatchResultService matchResultService;
+    private final UserDisciplineService disciplineService;
 
     public MatchService(MatchRepository matchRepository,
                         ModelMapper modelMapper,
@@ -50,7 +53,8 @@ public class MatchService {
                         PlayerStatsRepository playerStatsRepository,
                         PlayerSkillCalculator playerSkillCalculator,
                         NotificationService notificationService,
-                        MatchResultService matchResultService) {
+                        MatchResultService matchResultService,
+                        UserDisciplineService disciplineService) {
         this.matchRepository = matchRepository;
         this.modelMapper = modelMapper;
         this.userRepository = userRepository;
@@ -63,6 +67,7 @@ public class MatchService {
         this.playerSkillCalculator = playerSkillCalculator;
         this.notificationService=notificationService;
         this.matchResultService = matchResultService;
+        this.disciplineService = disciplineService;
     }
 
     @Transactional(readOnly = true)
@@ -105,6 +110,7 @@ public class MatchService {
                 match.getFormat(),
                 match.getLocation(),
                 match.getDateTime(),
+                match.getDuration(),
                 match.getCurrentPlayers(),
                 match.getMaxPlayers(),
                 match.getStatus(),
@@ -145,12 +151,14 @@ public class MatchService {
     public MatchDTO createDraft(Long organizerId, CreateMatchRequest request){
         UserEntity organizer=userRepository.findById(organizerId)
                 .orElseThrow(()->new EntityNotFoundException("Организатор не найден"));
+        disciplineService.assertCanParticipate(organizer);
 
         MatchEntity draftMatch=MatchEntity.builder()
                 .organizer(organizer)
                 .format(request.format())
                 .location(request.location())
                 .dateTime(request.dateTime())
+                .duration(MatchEntity.MAX_DURATION_MINUTES)
                 .maxPlayers(request.maxPlayers())
                 .currentPlayers(1)
                 .status(MatchStatus.DRAFT)
@@ -168,15 +176,20 @@ public class MatchService {
     }
 
 
+    @Transactional(isolation = Isolation.SERIALIZABLE)
     public MatchDTO publishMatch(Long matchId, Long organizerId){
         MatchEntity match=getMatchAndValidateOrganizer(matchId,organizerId);
+        disciplineService.assertCanParticipate(match.getOrganizer());
 
         if(match.getStatus()!=MatchStatus.DRAFT){
             throw new IllegalStateException("Опубликовать можно только черновик");
         }
 
+        assertVenueAvailable(match);
+
         match.setStatus(MatchStatus.OPEN);
         MatchEntity savedMatch=matchRepository.save(match);
+        matchRepository.flush();
 
         List<Long> telegramIds=userRepository.findAllByTelegramIdIsNotNull().stream()
                 .map(UserEntity::getTelegramId)
@@ -189,9 +202,10 @@ public class MatchService {
         );
         notificationService.sendToUsers(telegramIds,notificationText);
 
-        return modelMapper.map(matchRepository.save(match), MatchDTO.class);
+        return modelMapper.map(savedMatch, MatchDTO.class);
     }
 
+    @Transactional(isolation = Isolation.SERIALIZABLE)
     public MatchDTO updateMatch(Long matchId, Long organizerId, UpdateMatchRequest request){
         MatchEntity match=getMatchAndValidateOrganizer(matchId,organizerId);
 
@@ -222,7 +236,12 @@ public class MatchService {
             match.setMaxPlayers(request.maxPlayers());
         }
 
+        if (match.getStatus() == MatchStatus.OPEN || match.getStatus() == MatchStatus.IN_PROGRESS) {
+            assertVenueAvailable(match);
+        }
+
         MatchEntity savedMatch = matchRepository.save(match);
+        matchRepository.flush();
 
         // ПУБЛИКУЕМ СОБЫТИЕ ПЕРЕНОСА, ТОЛЬКО ЕСЛИ БЫЛИ ИЗМЕНЕНИЯ
         if (isRescheduled) {
@@ -287,6 +306,7 @@ public class MatchService {
 
         UserEntity user=userRepository.findById(userId)
                 .orElseThrow(()->new EntityNotFoundException("Пользователь не найден"));
+        disciplineService.assertCanParticipate(user);
 
         MatchParticipantEntity participant=MatchParticipantEntity.builder()
                 .match(match)
@@ -304,6 +324,10 @@ public class MatchService {
                 .orElseThrow(()->new EntityNotFoundException("Матч не найден"));
         if(match.getStatus()!=MatchStatus.OPEN){
             throw new IllegalStateException("Отписаться можно только от активного матча");
+        }
+
+        if (!LocalDateTime.now().isBefore(match.getDateTime())) {
+            throw new IllegalStateException("После начала матча отменить участие нельзя. Организатор отметит присутствие или неявку.");
         }
 
         if(match.getOrganizer().getId().equals(userId)){
@@ -372,6 +396,7 @@ public class MatchService {
 
         UserEntity user=userRepository.findById(userId)
                 .orElseThrow(()->new EntityNotFoundException("Пользователь не найден"));
+        disciplineService.assertCanParticipate(user);
 
         MatchWaitlistEntity waitlist=MatchWaitlistEntity.builder()
                 .match(match)
@@ -392,6 +417,15 @@ public class MatchService {
             throw new AccessDeniedException("Только организатор матча может управлять участниками");
         }
 
+        if (newStatus == ParticipantStatus.NO_SHOW) {
+            if (LocalDateTime.now().isBefore(match.getDateTime())) {
+                throw new IllegalStateException("Неявку можно поставить только после начала матча");
+            }
+            if (match.getStatus() != MatchStatus.OPEN && match.getStatus() != MatchStatus.IN_PROGRESS) {
+                throw new IllegalStateException("Неявку нужно отметить до отправки итогового протокола");
+            }
+        }
+
         // 2. Ищем участника
         MatchParticipantEntity participant = matchParticipantRepository.findByMatchIdAndUserId(matchId, targetUserId)
                 .orElseThrow(() -> new EntityNotFoundException("Игрок не найден в основном составе этого матча"));
@@ -399,6 +433,14 @@ public class MatchService {
         // 3. Защита от дурака: организатор не может поставить "неявку" самому себе
         if (targetUserId.equals(organizerId) && newStatus == ParticipantStatus.NO_SHOW) {
             throw new IllegalStateException("Организатор не может поставить неявку самому себе");
+        }
+
+        if (participant.getStatus() == newStatus) {
+            throw new IllegalStateException("Этот статус уже установлен");
+        }
+
+        if (newStatus == ParticipantStatus.NO_SHOW) {
+            disciplineService.registerNoShow(match, participant, match.getOrganizer());
         }
 
         // 4. Обновляем статус
@@ -443,5 +485,46 @@ public class MatchService {
             throw new AccessDeniedException("Вы не являетесь организатором этого матча");
         }
         return match;
+    }
+
+    private void assertVenueAvailable(MatchEntity candidate) {
+        LocalDateTime start = candidate.getDateTime();
+        int duration = Math.min(
+                Optional.ofNullable(candidate.getDuration()).orElse(MatchEntity.MAX_DURATION_MINUTES),
+                MatchEntity.MAX_DURATION_MINUTES
+        );
+        LocalDateTime end = start.plusMinutes(duration);
+        Long excludedId = candidate.getId() == null ? -1L : candidate.getId();
+
+        boolean conflict = matchRepository.findVenueConflictCandidates(
+                        excludedId,
+                        List.of(MatchStatus.OPEN, MatchStatus.IN_PROGRESS),
+                        start.minusMinutes(MatchEntity.MAX_DURATION_MINUTES),
+                        end
+                ).stream()
+                .filter(existing -> normalizeLocation(existing.getLocation())
+                        .equals(normalizeLocation(candidate.getLocation())))
+                .anyMatch(existing -> {
+                    int existingDuration = Math.min(
+                            Optional.ofNullable(existing.getDuration()).orElse(MatchEntity.MAX_DURATION_MINUTES),
+                            MatchEntity.MAX_DURATION_MINUTES
+                    );
+                    return existing.getDateTime().plusMinutes(existingDuration).isAfter(start);
+                });
+
+        if (conflict) {
+            throw new IllegalStateException("На этой площадке уже есть матч в выбранное время. "
+                    + "Выберите время не раньше чем через 30 минут или другую площадку.");
+        }
+    }
+
+    private String normalizeLocation(String location) {
+        if (location == null) return "";
+        return Normalizer.normalize(location, Normalizer.Form.NFKC)
+                .toLowerCase()
+                .replace('ё', 'е')
+                .replaceAll("[^\\p{L}\\p{N}]+", " ")
+                .trim()
+                .replaceAll("\\s+", " ");
     }
 }

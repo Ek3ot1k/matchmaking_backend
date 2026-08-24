@@ -31,5 +31,10 @@ public record UserProfileDTO(
         Integer totalAssists,
         Integer totalMvp,
         Double averageRating,
+        Boolean officiallyBanned,
+        Boolean permanentlyBanned,
+        LocalDateTime bannedUntil,
+        String banReason,
+        Long noShowWarningsLast30Days,
         List<PlayerMatchHistoryDTO> recentMatches
 ) {}

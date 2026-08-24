@@ -29,4 +29,14 @@ public interface MatchRepository extends JpaRepository<MatchEntity,Long>,
     );
 
     List<MatchEntity> findByStatusInOrderByResultVotingEndsAtAsc(List<MatchStatus> statuses);
+
+    @Query("select m from MatchEntity m " +
+            "where m.id <> :excludedId and m.status in :statuses " +
+            "and m.dateTime < :windowEnd and m.dateTime > :windowStart")
+    List<MatchEntity> findVenueConflictCandidates(
+            @Param("excludedId") Long excludedId,
+            @Param("statuses") List<MatchStatus> statuses,
+            @Param("windowStart") LocalDateTime windowStart,
+            @Param("windowEnd") LocalDateTime windowEnd
+    );
 }

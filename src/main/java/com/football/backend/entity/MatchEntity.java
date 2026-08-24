@@ -18,6 +18,8 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class MatchEntity {
+    public static final int MAX_DURATION_MINUTES = 30;
+
     @Id
     @Column(name = "id")
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -59,7 +61,7 @@ public class MatchEntity {
 
     @Builder.Default
     @Column(name = "duration",nullable = false)
-    private Integer duration=60;
+    private Integer duration=MAX_DURATION_MINUTES;
 
     @Column(name = "description")
     private String description;
@@ -120,4 +122,14 @@ public class MatchEntity {
 
     @Builder.Default
     private boolean reminder30minSent = false;
+
+    @PrePersist
+    @PreUpdate
+    private void enforceDurationLimit() {
+        if (duration == null || duration > MAX_DURATION_MINUTES) {
+            duration = MAX_DURATION_MINUTES;
+        } else if (duration < 1) {
+            duration = 1;
+        }
+    }
 }

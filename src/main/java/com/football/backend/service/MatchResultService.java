@@ -72,13 +72,22 @@ public class MatchResultService {
     public void submitProtocol(Long matchId, Long organizerId, FinishMatchRequest request) {
         MatchEntity match = lockedMatch(matchId);
         validateOrganizer(match, organizerId);
+        if (match.getOrganizer().isOfficiallyBanned()) {
+            throw new AccessDeniedException("Во время блокировки нельзя отправлять официальный протокол");
+        }
+        if (LocalDateTime.now().isBefore(match.getDateTime())) {
+            throw new IllegalStateException("Протокол можно отправить только после начала матча");
+        }
 
         if (match.getStatus() != MatchStatus.OPEN && match.getStatus() != MatchStatus.IN_PROGRESS) {
             throw new IllegalStateException("Протокол можно отправить только для открытого или начатого матча");
         }
 
         List<MatchParticipantEntity> eligible = participantRepository
-                .findByMatchIdAndStatusNot(matchId, ParticipantStatus.NO_SHOW);
+                .findByMatchIdAndStatusNot(matchId, ParticipantStatus.NO_SHOW)
+                .stream()
+                .filter(p -> !p.getUser().isOfficiallyBanned())
+                .toList();
         if (eligible.size() < minimumParticipants) {
             throw new IllegalStateException("Для рейтингового результата нужно минимум "
                     + minimumParticipants + " участника. Сейчас: " + eligible.size());
@@ -123,7 +132,7 @@ public class MatchResultService {
         }
 
         MatchParticipantEntity participant = participantRepository.findByMatchIdAndUserId(matchId, userId)
-                .filter(p -> p.getStatus() != ParticipantStatus.NO_SHOW)
+                .filter(p -> p.getStatus() != ParticipantStatus.NO_SHOW && !p.getUser().isOfficiallyBanned())
                 .orElseThrow(() -> new AccessDeniedException("Голосовать могут только участники матча"));
 
         String reason = request.reason() == null ? null : request.reason().trim();
@@ -318,7 +327,9 @@ public class MatchResultService {
         ));
         for (PlayerStatsEntity stat : playerStatsRepository.findByMatchId(match.getId())) {
             MatchParticipantEntity participant = participantByUser.get(stat.getUser().getId());
-            if (participant == null || participant.getStatus() == ParticipantStatus.NO_SHOW) continue;
+            if (participant == null
+                    || participant.getStatus() == ParticipantStatus.NO_SHOW
+                    || stat.getUser().isOfficiallyBanned()) continue;
             int conceded = participant.getTeamColor() == TeamColor.WHITE
                     ? match.getScoreDark()
                     : match.getScoreWhite();
@@ -345,7 +356,7 @@ public class MatchResultService {
                 && match.getResultVotingEndsAt() != null
                 && LocalDateTime.now().isBefore(match.getResultVotingEndsAt());
         boolean eligible = participantRepository.findByMatchIdAndUserId(match.getId(), userId)
-                .map(p -> p.getStatus() != ParticipantStatus.NO_SHOW)
+                .map(p -> p.getStatus() != ParticipantStatus.NO_SHOW && !p.getUser().isOfficiallyBanned())
                 .orElse(false);
         boolean reveal = match.getStatus() != MatchStatus.RESULT_PENDING;
         Integer confirmations = reveal ? Math.toIntExact(resultVoteRepository.countByMatchIdAndDecision(

@@ -106,7 +106,7 @@ public class FootballMatchmakerBot extends TelegramLongPollingBot {
 
         SendMessage message = new SendMessage();
         message.setChatId(chatId.toString());
-        message.setText("Привет, " + firstName + "! Добро пожаловать в сервис футбольных матчей. Нажми на кнопку ниже, чтобы открыть приложение 👇");
+        message.setText(BotMessages.start(firstName));
 
         InlineKeyboardButton webAppButton = new InlineKeyboardButton();
         webAppButton.setText("⚽ Открыть Mini App");
