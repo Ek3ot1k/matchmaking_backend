@@ -3,6 +3,7 @@ package com.football.backend.bot;
 import com.football.backend.service.PaymentService;
 import com.football.backend.service.UserService;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
@@ -21,6 +22,7 @@ import java.util.List;
 
 @Component
 @Profile("local")
+@ConditionalOnProperty(name = "telegram.long-polling.enabled", havingValue = "true")
 public class FootballMatchmakerBot extends TelegramLongPollingBot {
 
     private final String botUsername;
