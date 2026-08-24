@@ -41,11 +41,28 @@ public class TeamBalancerService {
             throw new IllegalStateException("Распределять игроков можно только в активном матче");
         }
 
+        distribute(matchId);
+    }
+
+    /**
+     * Автоматически распределяет игроков сразу после записи/отмены записи.
+     * Команды всегда отличаются по числу игроков максимум на одного, а при равенстве
+     * приоритет — одинаковому числу позиций и близкому суммарному OVR.
+     */
+    @Transactional
+    public void autoBalanceTeams(Long matchId) {
+        if (!matchRepository.existsById(matchId)) {
+            throw new EntityNotFoundException("Матч не найден");
+        }
+        distribute(matchId);
+    }
+
+    private void distribute(Long matchId) {
         List<MatchParticipantEntity> activeParticipants = matchParticipantRepository
                 .findByMatchIdAndStatusNot(matchId, ParticipantStatus.NO_SHOW);
 
-        if (activeParticipants.size() < 2) {
-            throw new IllegalStateException("Слишком мало игроков для распределения");
+        if (activeParticipants.isEmpty()) {
+            return;
         }
 
         int maxPerTeam = (int) Math.ceil(activeParticipants.size() / 2.0);
@@ -129,7 +146,7 @@ public class TeamBalancerService {
         // Если составы уже были распределены — запускаем пересчет
         if (isAlreadyBalanced) {
             System.out.println("-> [AUTO-REBALANCE] Состав изменился. Запускаем автоматический пересчет для матча " + matchId);
-            balanceTeams(matchId, organizerId);
+            autoBalanceTeams(matchId);
         }
     }
 

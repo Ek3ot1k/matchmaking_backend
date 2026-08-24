@@ -171,6 +171,7 @@ public class MatchService {
                 .user(organizer)
                 .build();
         matchParticipantRepository.save(participant);
+        teamBalancerService.autoBalanceTeams(savedMatch.getId());
 
         return modelMapper.map(savedMatch, MatchDTO.class);
     }
@@ -317,6 +318,7 @@ public class MatchService {
 
         match.setCurrentPlayers(match.getCurrentPlayers()+1);
         matchRepository.save(match);
+        teamBalancerService.autoBalanceTeams(matchId);
     }
 
     public void leaveMatch(Long matchId, Long userId){
@@ -365,8 +367,7 @@ public class MatchService {
         }
         matchRepository.save(match);
 
-        // --- АВТОМАТИЧЕСКИЙ ПЕРЕСЧЕТ ---
-        teamBalancerService.rebalanceIfAlreadyBalanced(matchId, match.getOrganizer().getId());
+        teamBalancerService.autoBalanceTeams(matchId);
     }
 
     public void joinWaitList(Long matchId,Long userId){
