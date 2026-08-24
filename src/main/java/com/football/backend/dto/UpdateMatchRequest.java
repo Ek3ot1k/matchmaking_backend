@@ -11,6 +11,6 @@ public record UpdateMatchRequest(
         @Future(message = "Дата должна быть в будущем")
         LocalDateTime dateTime,
 
-        @Min(4) @Max(22)
+        @Min(10) @Max(14)
         Integer maxPlayers
 ) {}

@@ -84,13 +84,13 @@ public class MatchLifecycleService {
     }
 
     /**
-     * Формат не может требовать больше людей, чем есть в составе. 11×11 при
-     * десяти игроках становится 5×5, а 13 участников — 7×7 (один запасной).
+     * В приложении есть только 5×5, 6×6 и 7×7. При старте подбирается
+     * наибольший из этих форматов, который можно провести собравшимся составом.
      */
     private void resizeFormatToRoster(MatchEntity match, int players) {
         int requestedTeamSize = readTeamSize(match);
         int availableTeamSize = (int) Math.ceil(players / 2.0);
-        int effectiveTeamSize = Math.max(5, Math.min(requestedTeamSize, availableTeamSize));
+        int effectiveTeamSize = Math.max(5, Math.min(7, Math.min(requestedTeamSize, availableTeamSize)));
 
         match.setFormat(effectiveTeamSize + "×" + effectiveTeamSize);
         match.setMaxPlayers(effectiveTeamSize * 2);
@@ -100,9 +100,9 @@ public class MatchLifecycleService {
     private int readTeamSize(MatchEntity match) {
         try {
             int parsed = Integer.parseInt(String.valueOf(match.getFormat()).split("[×xX]")[0].trim());
-            return parsed >= 5 ? parsed : Math.max(5, match.getMaxPlayers() / 2);
+            return parsed >= 5 ? Math.min(7, parsed) : Math.max(5, Math.min(7, match.getMaxPlayers() / 2));
         } catch (RuntimeException ignored) {
-            return Math.max(5, match.getMaxPlayers() / 2);
+            return Math.max(5, Math.min(7, match.getMaxPlayers() / 2));
         }
     }
 

@@ -156,15 +156,16 @@ public class MatchService {
         UserEntity organizer=userRepository.findById(organizerId)
                 .orElseThrow(()->new EntityNotFoundException("Организатор не найден"));
         disciplineService.assertCanParticipate(organizer);
+        String format = MatchEntity.normalizeSupportedFormat(request.format());
 
         MatchEntity draftMatch=MatchEntity.builder()
                 .organizer(organizer)
-                .format(request.format())
+                .format(format)
                 .location(request.location())
                 .dateTime(request.dateTime())
-                .duration(MatchEntity.MAX_DURATION_MINUTES)
+                .duration(MatchEntity.MATCH_DURATION_MINUTES)
                 .minPlayers(10)
-                .maxPlayers(request.maxPlayers())
+                .maxPlayers(MatchEntity.maxPlayersForFormat(format))
                 .currentPlayers(1)
                 .status(MatchStatus.DRAFT)
                 .build();
@@ -191,6 +192,11 @@ public class MatchService {
         if(match.getStatus()!=MatchStatus.DRAFT){
             throw new IllegalStateException("Опубликовать можно только черновик");
         }
+
+        String format = MatchEntity.normalizeSupportedFormat(match.getFormat());
+        match.setFormat(format);
+        match.setMaxPlayers(MatchEntity.maxPlayersForFormat(format));
+        match.setDuration(MatchEntity.MATCH_DURATION_MINUTES);
 
         assertVenueAvailable(match);
 
@@ -237,6 +243,10 @@ public class MatchService {
             isRescheduled = true;
         }
         if (request.maxPlayers() != null) {
+            int expectedMaxPlayers = MatchEntity.maxPlayersForFormat(match.getFormat());
+            if (!request.maxPlayers().equals(expectedMaxPlayers)) {
+                throw new IllegalStateException("Количество игроков определяется форматом матча");
+            }
             if (request.maxPlayers() < match.getCurrentPlayers()) {
                 throw new IllegalArgumentException("Нельзя сделать лимит меньше, чем уже записано игроков");
             }

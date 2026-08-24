@@ -16,10 +16,10 @@ public class MatchDurationMigration implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         int updated = jdbcTemplate.update(
-                "UPDATE matches SET duration = 30 WHERE duration IS NULL OR duration < 1 OR duration > 30"
+                "UPDATE matches SET duration = 15 WHERE duration IS NULL OR duration <> 15"
         );
         if (updated > 0) {
-            log.info("Длительность {} матчей приведена к лимиту 30 минут", updated);
+            log.info("Длительность {} матчей приведена к фиксированным 15 минутам", updated);
         }
     }
 }

@@ -9,6 +9,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Entity
 @Table(name = "matches")
@@ -18,7 +20,15 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class MatchEntity {
-    public static final int MAX_DURATION_MINUTES = 30;
+    /**
+     * Дворовые матчи в приложении всегда идут 15 минут. Одно значение
+     * используется при создании, проверке пересечения площадок и протоколе.
+     */
+    public static final int MATCH_DURATION_MINUTES = 15;
+    public static final int MAX_DURATION_MINUTES = MATCH_DURATION_MINUTES;
+
+    private static final Pattern SUPPORTED_FORMAT =
+            Pattern.compile("^\\s*([567])\\s*[xXхХ×]\\s*\\1\\s*$");
 
     @Id
     @Column(name = "id")
@@ -61,7 +71,7 @@ public class MatchEntity {
 
     @Builder.Default
     @Column(name = "duration",nullable = false)
-    private Integer duration=MAX_DURATION_MINUTES;
+    private Integer duration=MATCH_DURATION_MINUTES;
 
     @Column(name = "description")
     private String description;
@@ -83,7 +93,7 @@ public class MatchEntity {
     private List<RatingHistoryEntity> ratingHistory;
 
     @Column(name = "format", length = 10)
-    private String format; // Например: "5x5", "8x8", "11x11"
+    private String format; // Допустимы только: "5×5", "6×6", "7×7"
 
     @Column(name = "score_white")
     private Integer scoreWhite;
@@ -125,11 +135,22 @@ public class MatchEntity {
 
     @PrePersist
     @PreUpdate
-    private void enforceDurationLimit() {
-        if (duration == null || duration > MAX_DURATION_MINUTES) {
-            duration = MAX_DURATION_MINUTES;
-        } else if (duration < 1) {
-            duration = 1;
+    private void enforceFixedDuration() {
+        duration = MATCH_DURATION_MINUTES;
+    }
+
+    public static String normalizeSupportedFormat(String rawFormat) {
+        Matcher matcher = SUPPORTED_FORMAT.matcher(rawFormat == null ? "" : rawFormat);
+        if (!matcher.matches()) {
+            throw new IllegalStateException("Доступны только форматы 5×5, 6×6 и 7×7");
         }
+        String teamSize = matcher.group(1);
+        return teamSize + "×" + teamSize;
+    }
+
+    public static int maxPlayersForFormat(String rawFormat) {
+        String normalized = normalizeSupportedFormat(rawFormat);
+        int teamSize = Integer.parseInt(normalized.substring(0, 1));
+        return teamSize * 2;
     }
 }
