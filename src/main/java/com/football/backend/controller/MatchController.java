@@ -34,6 +34,11 @@ public class MatchController {
         return matchService.getMatches(filter,pageable);
     }
 
+    @GetMapping("/{id}")
+    public MatchDetailsDTO getMatch(@PathVariable("id") Long matchId) {
+        return matchService.getMatchDetails(matchId);
+    }
+
     @PostMapping
     public MatchDTO createDraft(
             @AuthenticationPrincipal UserEntityDetails userDetails,

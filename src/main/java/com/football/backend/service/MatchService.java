@@ -70,6 +70,72 @@ public class MatchService {
         return matchPage.map(match -> modelMapper.map(match, MatchDTO.class));
     }
 
+    @Transactional(readOnly = true)
+    public MatchDetailsDTO getMatchDetails(Long matchId) {
+        MatchEntity match = matchRepository.findById(matchId)
+                .orElseThrow(() -> new EntityNotFoundException("Матч не найден"));
+
+        List<MatchParticipantDetailsDTO> participants = matchParticipantRepository.findByMatchId(matchId)
+                .stream()
+                .map(participant -> new MatchParticipantDetailsDTO(
+                        participant.getId(),
+                        participant.getUser().getId(),
+                        matchId,
+                        participant.getTeamColor(),
+                        participant.getStatus(),
+                        toUserDTO(participant.getUser())
+                ))
+                .toList();
+
+        List<MatchWaitlistDetailsDTO> waitlist = matchWaitlistRepository.findByMatchIdOrderByJoinedAtAsc(matchId)
+                .stream()
+                .map(entry -> new MatchWaitlistDetailsDTO(
+                        entry.getId(),
+                        entry.getUser().getId(),
+                        matchId,
+                        entry.getJoinedAt(),
+                        toUserDTO(entry.getUser())
+                ))
+                .toList();
+
+        return new MatchDetailsDTO(
+                match.getId(),
+                match.getFormat(),
+                match.getLocation(),
+                match.getDateTime(),
+                match.getCurrentPlayers(),
+                match.getMaxPlayers(),
+                match.getStatus(),
+                match.getScoreWhite(),
+                match.getScoreDark(),
+                toUserDTO(match.getOrganizer()),
+                participants,
+                waitlist
+        );
+    }
+
+    private UserDTO toUserDTO(UserEntity user) {
+        if (user == null) return null;
+        return new UserDTO(
+                user.getId(),
+                user.getTelegramId(),
+                user.getUsername(),
+                user.getFirstName(),
+                user.getLastName(),
+                user.getPosition(),
+                user.getRole(),
+                user.isVip(),
+                user.getVipUntil(),
+                user.getOvr(),
+                user.getPace(),
+                user.getShoot(),
+                user.getPass(),
+                user.getDribbling(),
+                user.getDefend(),
+                user.getPhysic()
+        );
+    }
+
     public MatchDTO createDraft(Long organizerId, CreateMatchRequest request){
         UserEntity organizer=userRepository.findById(organizerId)
                 .orElseThrow(()->new EntityNotFoundException("Организатор не найден"));
@@ -107,7 +173,7 @@ public class MatchService {
         MatchEntity savedMatch=matchRepository.save(match);
 
         List<Long> telegramIds=userRepository.findAllByTelegramIdIsNotNull().stream()
-                .map(UserEntity::getId)
+                .map(UserEntity::getTelegramId)
                 .toList();
 
         String notificationText = String.format(

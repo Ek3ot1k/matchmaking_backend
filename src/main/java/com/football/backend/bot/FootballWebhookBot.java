@@ -51,7 +51,7 @@ public class FootballWebhookBot extends SpringWebhookBot {
         if (update.hasMessage() && update.getMessage().hasText()) {
             String messageText = update.getMessage().getText();
 
-            if (messageText.equals("/start")) {
+            if (messageText.startsWith("/start")) {
                 Long telegramUserId = update.getMessage().getFrom().getId();
                 String firstName = update.getMessage().getFrom().getFirstName();
 

@@ -1,7 +1,8 @@
 package com.football.backend.service;
 
 import com.football.backend.bot.FootballMatchmakerBot;
-import org.springframework.context.annotation.Lazy;
+import com.football.backend.bot.FootballWebhookBot;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -13,10 +14,18 @@ import java.util.List;
 @Service
 public class NotificationService {
 
-    private final DefaultAbsSender telegramBot;
+    private final ObjectProvider<FootballMatchmakerBot> longPollingBot;
+    private final ObjectProvider<FootballWebhookBot> webhookBot;
 
-    public NotificationService(@Lazy FootballMatchmakerBot telegramBot) {
-        this.telegramBot = telegramBot;
+    public NotificationService(ObjectProvider<FootballMatchmakerBot> longPollingBot,
+                               ObjectProvider<FootballWebhookBot> webhookBot) {
+        this.longPollingBot = longPollingBot;
+        this.webhookBot = webhookBot;
+    }
+
+    private DefaultAbsSender activeBot() {
+        DefaultAbsSender sender = webhookBot.getIfAvailable();
+        return sender != null ? sender : longPollingBot.getIfAvailable();
     }
 
     /**
@@ -26,6 +35,8 @@ public class NotificationService {
     @Async
     public void sendToUser(Long telegramId, String text) {
         if (telegramId == null) return;
+        DefaultAbsSender telegramBot = activeBot();
+        if (telegramBot == null) return;
 
         SendMessage message = new SendMessage();
         message.setChatId(telegramId.toString());
