@@ -31,7 +31,11 @@ public class MatchRatingCalculator {
     ){
         double rating=BASE_RATING;
         TeamColor playerTeam = participant.getTeamColor();
-        Position position = participant.getUser().getPosition();
+        // Рейтинг считается по позиции именно в этом матче, а не по текущей
+        // позиции в профиле, которую игрок мог изменить позже.
+        Position position = participant.getPosition() != null
+                ? participant.getPosition()
+                : participant.getUser().getPosition();
 
         // 1. Учитываем результат матча
         if (playerTeam == TeamColor.WHITE) {

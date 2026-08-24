@@ -77,7 +77,7 @@ public class TeamBalancerService {
 
         // 1. Сортировка вратарей
         List<MatchParticipantEntity> goalkeepers = activeParticipants.stream()
-                .filter(p -> p.getUser().getPosition() == Position.GOALKEEPER)
+                .filter(p -> positionOf(p) == Position.GOALKEEPER)
                 .sorted(Comparator.comparingInt((MatchParticipantEntity p) -> p.getUser().getOvr()).reversed())
                 .collect(Collectors.toList());
 
@@ -93,7 +93,7 @@ public class TeamBalancerService {
 
         // 2. Сортировка полевых
         List<MatchParticipantEntity> fieldPlayers = activeParticipants.stream()
-                .filter(p -> p.getUser().getPosition() != Position.GOALKEEPER)
+                .filter(p -> positionOf(p) != Position.GOALKEEPER)
                 .sorted(Comparator.comparingInt((MatchParticipantEntity p) -> p.getUser().getOvr()).reversed())
                 .collect(Collectors.toList());
 
@@ -109,7 +109,7 @@ public class TeamBalancerService {
                 continue;
             }
 
-            int posIndex = player.getUser().getPosition().ordinal();
+            int posIndex = positionOf(player).ordinal();
 
             if (whitePosCounts[posIndex] < darkPosCounts[posIndex]) {
                 addToTeam(teamWhite, player, whitePosCounts);
@@ -152,6 +152,14 @@ public class TeamBalancerService {
 
     private void addToTeam(List<MatchParticipantEntity> team, MatchParticipantEntity player, int[] posCounters) {
         team.add(player);
-        posCounters[player.getUser().getPosition().ordinal()]++;
+        posCounters[positionOf(player).ordinal()]++;
+    }
+
+    private Position positionOf(MatchParticipantEntity participant) {
+        // Старые записи до появления снимка не содержат исторической позиции.
+        // Для них сохраняем прежнее отображение до следующей записи в матч.
+        return participant.getPosition() != null
+                ? participant.getPosition()
+                : participant.getUser().getPosition();
     }
 }

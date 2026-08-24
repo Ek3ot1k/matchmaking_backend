@@ -1,5 +1,6 @@
 package com.football.backend.entity;
 
+import com.football.backend.model.Position;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -29,6 +30,11 @@ public class MatchWaitlistEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id",nullable = false)
     private UserEntity user;
+
+    /** Снимок позиции на момент постановки в лист ожидания. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "position")
+    private Position position;
 
     @Column(name = "joined_at",nullable = false)
     @Builder.Default

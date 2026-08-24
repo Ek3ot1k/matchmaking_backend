@@ -91,6 +91,7 @@ public class MatchService {
                         participant.getUser().getId(),
                         matchId,
                         participant.getTeamColor(),
+                        participant.getPosition(),
                         participant.getStatus(),
                         toUserDTO(participant.getUser())
                 ))
@@ -102,6 +103,7 @@ public class MatchService {
                         entry.getId(),
                         entry.getUser().getId(),
                         matchId,
+                        entry.getPosition(),
                         entry.getJoinedAt(),
                         toUserDTO(entry.getUser())
                 ))
@@ -172,6 +174,7 @@ public class MatchService {
         MatchParticipantEntity participant=MatchParticipantEntity.builder()
                 .match(savedMatch)
                 .user(organizer)
+                .position(organizer.getPosition())
                 .build();
         matchParticipantRepository.save(participant);
         teamBalancerService.autoBalanceTeams(savedMatch.getId());
@@ -316,6 +319,7 @@ public class MatchService {
         MatchParticipantEntity participant=MatchParticipantEntity.builder()
                 .match(match)
                 .user(user)
+                .position(user.getPosition())
                 .teamColor(TeamColor.NONE)
                 .build();
         matchParticipantRepository.save(participant);
@@ -356,6 +360,9 @@ public class MatchService {
             MatchParticipantEntity newParticipant=MatchParticipantEntity.builder()
                     .match(match)
                     .user(luckyUser)
+                    .position(waitlistEntry.get().getPosition() != null
+                            ? waitlistEntry.get().getPosition()
+                            : luckyUser.getPosition())
                     .teamColor(TeamColor.NONE)
                     .build();
             matchParticipantRepository.save(newParticipant);
@@ -407,6 +414,7 @@ public class MatchService {
         MatchWaitlistEntity waitlist=MatchWaitlistEntity.builder()
                 .match(match)
                 .user(user)
+                .position(user.getPosition())
                 .build();
 
         matchWaitlistRepository.save(waitlist);
