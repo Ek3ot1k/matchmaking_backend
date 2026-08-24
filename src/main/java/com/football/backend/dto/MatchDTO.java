@@ -18,6 +18,9 @@ public class MatchDTO {
 
     private MatchStatus status;     // Статус: OPEN, COMPLETED, CANCELLED
 
+    private Integer scoreWhite;
+    private Integer scoreDark;
+
     // Организатор матча
     private UserDTO organizer;
 }
