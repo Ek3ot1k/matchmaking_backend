@@ -23,6 +23,20 @@ public interface MatchRepository extends JpaRepository<MatchEntity,Long>,
 
     List<MatchEntity> findByStatus(MatchStatus status);
 
+    Optional<MatchEntity> findByCreationRequestId(String creationRequestId);
+
+    @Query("select count(m) from MatchEntity m where m.organizer.id = :organizerId " +
+            "and m.createdAt >= :start and m.createdAt < :end")
+    long countCreatedByOrganizerBetween(@Param("organizerId") Long organizerId,
+                                        @Param("start") LocalDateTime start,
+                                        @Param("end") LocalDateTime end);
+
+    @Query("select count(m) from MatchEntity m where m.organizer.id = :organizerId " +
+            "and m.status = 'CANCELLED' and m.cancelledAt >= :start and m.cancelledAt < :end")
+    long countCancelledByOrganizerBetween(@Param("organizerId") Long organizerId,
+                                          @Param("start") LocalDateTime start,
+                                          @Param("end") LocalDateTime end);
+
     /**
      * Матчи, чьё запланированное время уже наступило. Нужны планировщику,
      * который закрывает набор строго в момент начала матча.

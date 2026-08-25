@@ -107,6 +107,12 @@ public class MatchEntity {
     @Column(name = "updated_by_organizer_id")
     private Long updatedByOrganizerId;
 
+    @Column(name = "cancelled_at")
+    private LocalDateTime cancelledAt;
+
+    @Column(name = "creation_request_id", unique = true, length = 100)
+    private String creationRequestId;
+
     @Column(name = "result_voting_started_at")
     private LocalDateTime resultVotingStartedAt;
 

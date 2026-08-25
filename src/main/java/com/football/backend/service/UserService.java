@@ -5,30 +5,34 @@ import com.football.backend.dto.PublicPlayerProfileResponse;
 import com.football.backend.dto.UpdateProfileRequest;
 import com.football.backend.dto.UserProfileDTO;
 import com.football.backend.entity.PlayerStatsEntity;
+import com.football.backend.entity.MatchParticipantEntity;
 import com.football.backend.entity.UserEntity;
 import com.football.backend.exceptions.ResourceNotFoundException;
 import com.football.backend.model.Position;
 import com.football.backend.repository.PlayerStatsRepository;
 import com.football.backend.repository.UserRepository;
+import com.football.backend.repository.MatchParticipantRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 @Service
 public class UserService {
     private final UserRepository userRepository;
     private final PlayerStatsRepository playerStatsRepository;
     private final UserDisciplineService disciplineService;
+    private final MatchParticipantRepository participantRepository;
 
     public UserService(UserRepository userRepository,
                        PlayerStatsRepository playerStatsRepository,
-                       UserDisciplineService disciplineService) {
+                       UserDisciplineService disciplineService,
+                       MatchParticipantRepository participantRepository) {
         this.userRepository = userRepository;
         this.playerStatsRepository = playerStatsRepository;
         this.disciplineService = disciplineService;
+        this.participantRepository = participantRepository;
     }
 
     public UserEntity findByUsername(String username){
@@ -47,9 +51,6 @@ public class UserService {
                 .orElseThrow(()->new EntityNotFoundException("Пользователь не найден"));
         if(request.username()!=null && !request.username().isBlank()){
             user.setUsername(request.username().trim());
-        }
-        if(request.position()!=null){
-            user.setPosition(request.position());
         }
         return userRepository.save(user);
     }
@@ -109,13 +110,29 @@ public class UserService {
                 ))
                 .toList();
 
+        List<MatchParticipantEntity> completedParticipations = participantRepository
+                .findCompletedByUserIdOrderByMatchDateDesc(userId);
+        Map<Position, Long> positionCounts = completedParticipations.stream()
+                .filter(p -> p.getPosition() != null && p.getPosition() != Position.UNKNOWN)
+                .collect(java.util.stream.Collectors.groupingBy(MatchParticipantEntity::getPosition,
+                        () -> new EnumMap<>(Position.class), java.util.stream.Collectors.counting()));
+        Position mainPosition = positionCounts.entrySet().stream()
+                .max(Comparator.<Map.Entry<Position, Long>>comparingLong(Map.Entry::getValue)
+                        .thenComparing(entry -> lastPlayedRank(completedParticipations, entry.getKey())))
+                .map(Map.Entry::getKey)
+                .orElse(Position.UNKNOWN);
+        int positionedMatches = positionCounts.values().stream().mapToInt(Long::intValue).sum();
+        Map<String, Integer> positionPercentages = new LinkedHashMap<>();
+        positionCounts.forEach((position, count) -> positionPercentages.put(position.name(),
+                (int) Math.round(count * 100.0 / Math.max(1, positionedMatches))));
+
         return new UserProfileDTO(
                 user.getId(),
                 user.getUsername(),
                 user.getFirstName(),
                 user.getLastName(),
                 user.getAvatarUrl(),
-                user.getPosition() != null ? user.getPosition().name() : "Не указана",
+                mainPosition.name(),
                 user.getRole(),
                 user.isVip(),
                 user.getVipUntil(),
@@ -138,8 +155,16 @@ public class UserService {
                 user.getBannedUntil(),
                 user.getBanReason(),
                 disciplineService.warningsInLast30Days(userId),
+                positionPercentages,
                 recentMatches
         );
+    }
+
+    private int lastPlayedRank(List<MatchParticipantEntity> completedParticipations, Position position) {
+        for (int i = 0; i < completedParticipations.size(); i++) {
+            if (completedParticipations.get(i).getPosition() == position) return completedParticipations.size() - i;
+        }
+        return 0;
     }
 
     @Transactional

@@ -58,6 +58,8 @@ public class TeamBalancerService {
     }
 
     private void distribute(Long matchId) {
+        MatchEntity match = matchRepository.findById(matchId)
+                .orElseThrow(() -> new EntityNotFoundException("Матч не найден"));
         List<MatchParticipantEntity> activeParticipants = matchParticipantRepository
                 .findByMatchIdAndStatusNot(matchId, ParticipantStatus.NO_SHOW);
 
@@ -75,8 +77,20 @@ public class TeamBalancerService {
         int[] whitePosCounts = new int[Position.values().length];
         int[] darkPosCounts = new int[Position.values().length];
 
+        // Первая команда всегда ведётся организатором. Это не навязывает схему
+        // и не меняет позицию игрока — лишь фиксирует капитана первой команды.
+        MatchParticipantEntity organizer = activeParticipants.stream()
+                .filter(p -> p.getUser().getId().equals(match.getOrganizer().getId()))
+                .findFirst()
+                .orElse(null);
+        if (organizer != null) {
+            addToTeam(teamWhite, organizer, whitePosCounts);
+            whiteOvr += organizer.getUser().getOvr();
+        }
+
         // 1. Сортировка вратарей
         List<MatchParticipantEntity> goalkeepers = activeParticipants.stream()
+                .filter(p -> organizer == null || !p.getId().equals(organizer.getId()))
                 .filter(p -> positionOf(p) == Position.GOALKEEPER)
                 .sorted(Comparator.comparingInt((MatchParticipantEntity p) -> p.getUser().getOvr()).reversed())
                 .collect(Collectors.toList());
@@ -93,6 +107,7 @@ public class TeamBalancerService {
 
         // 2. Сортировка полевых
         List<MatchParticipantEntity> fieldPlayers = activeParticipants.stream()
+                .filter(p -> organizer == null || !p.getId().equals(organizer.getId()))
                 .filter(p -> positionOf(p) != Position.GOALKEEPER)
                 .sorted(Comparator.comparingInt((MatchParticipantEntity p) -> p.getUser().getOvr()).reversed())
                 .collect(Collectors.toList());

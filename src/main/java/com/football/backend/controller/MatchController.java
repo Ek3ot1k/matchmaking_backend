@@ -62,9 +62,10 @@ public class MatchController {
     @PostMapping("/{id}/join")
     public ResponseEntity<String> joinMatch(
             @PathVariable("id") Long matchId,
-            @AuthenticationPrincipal UserEntityDetails userDetails
+            @AuthenticationPrincipal UserEntityDetails userDetails,
+            @Valid @RequestBody JoinMatchRequest request
     ){
-        matchService.joinMatch(matchId,userDetails.getUserId());
+        matchService.joinMatch(matchId,userDetails.getUserId(), request.position());
         return ResponseEntity.ok("Вы успешно записаны на матч!");
     }
 
@@ -80,9 +81,10 @@ public class MatchController {
     @PostMapping("/{id}/waitlist/join")
     public ResponseEntity<String> joinWaitList(
             @PathVariable("id") Long matchId,
-            @AuthenticationPrincipal UserEntityDetails userDetails
+            @AuthenticationPrincipal UserEntityDetails userDetails,
+            @Valid @RequestBody JoinMatchRequest request
     ){
-        matchService.joinWaitList(matchId,userDetails.getUserId());
+        matchService.joinWaitList(matchId,userDetails.getUserId(), request.position());
         return ResponseEntity.ok("Вы успешно добавлены в лист ожидания!");
     }
 
@@ -114,6 +116,16 @@ public class MatchController {
     ){
         matchService.updateParticipantStatus(matchId,userId,userEntityDetails.getUserId(), ParticipantStatus.NO_SHOW);
         return ResponseEntity.ok("Игроку выставлена неявка");
+    }
+
+    @PatchMapping("/{matchId}/participants/me/position")
+    public ResponseEntity<String> changeMyPosition(
+            @PathVariable Long matchId,
+            @AuthenticationPrincipal UserEntityDetails userDetails,
+            @Valid @RequestBody UpdateMatchParticipantPositionRequest request
+    ) {
+        matchService.changeMyPosition(matchId, userDetails.getUserId(), request.position());
+        return ResponseEntity.ok("Позиция в матче обновлена");
     }
 
     @PostMapping("/{id}/balance")

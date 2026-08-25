@@ -5,6 +5,8 @@ import com.football.backend.model.ParticipantStatus;
 import com.football.backend.model.TeamColor;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -17,4 +19,8 @@ public interface MatchParticipantRepository extends JpaRepository<MatchParticipa
     List<MatchParticipantEntity> findByMatchId(Long matchId);
     List<MatchParticipantEntity> findByMatchIdAndStatusNot(Long matchId, ParticipantStatus status);
     boolean existsByMatchIdAndTeamColorNot(Long matchId, TeamColor color);
+
+    @Query("select p from MatchParticipantEntity p join fetch p.match m where p.user.id = :userId " +
+            "and m.status = 'COMPLETED' and p.status <> 'NO_SHOW' order by m.dateTime desc")
+    List<MatchParticipantEntity> findCompletedByUserIdOrderByMatchDateDesc(@Param("userId") Long userId);
 }

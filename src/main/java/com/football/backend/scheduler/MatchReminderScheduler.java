@@ -41,7 +41,7 @@ public class MatchReminderScheduler {
 
             List<MatchParticipantEntity> participants=matchParticipantRepository.findByMatchId(match.getId());
             List<Long> telegramIds=participants.stream()
-                    .map(p->p.getUser().getId())
+                    .map(p->p.getUser().getTelegramId())
                     .filter(id->id!=null)
                     .toList();
 

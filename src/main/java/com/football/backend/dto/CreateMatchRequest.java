@@ -1,6 +1,7 @@
 package com.football.backend.dto;
 
 import jakarta.validation.constraints.*;
+import com.football.backend.model.Position;
 
 import java.time.LocalDateTime;
 
@@ -18,5 +19,11 @@ public record CreateMatchRequest(
         @NotNull(message = "Укажите максимальное количество игроков")
         @Min(value = 10, message = "Минимум 10 игроков (5×5)")
         @Max(value = 14, message = "Максимум 14 игроков (7×7)")
-        Integer maxPlayers
+        Integer maxPlayers,
+
+        @NotNull(message = "Выберите позицию для этого матча")
+        Position position,
+
+        @Size(max = 100, message = "Некорректный ключ запроса")
+        String requestId
 ) {}

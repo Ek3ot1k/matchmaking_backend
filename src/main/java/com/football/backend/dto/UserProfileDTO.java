@@ -4,6 +4,7 @@ import com.football.backend.model.Role;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 public record UserProfileDTO(
         Long userId,
@@ -36,5 +37,6 @@ public record UserProfileDTO(
         LocalDateTime bannedUntil,
         String banReason,
         Long noShowWarningsLast30Days,
+        Map<String, Integer> positionPercentages,
         List<PlayerMatchHistoryDTO> recentMatches
 ) {}

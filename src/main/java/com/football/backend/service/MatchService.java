@@ -30,6 +30,8 @@ import java.util.Optional;
 @Service
 @Transactional
 public class MatchService {
+    private static final ZoneId MOSCOW_ZONE = ZoneId.of("Europe/Moscow");
+    private static final int DAILY_ORGANIZER_LIMIT = 3;
     private final MatchRepository matchRepository;
     private final ModelMapper modelMapper;
     private final UserRepository userRepository;
@@ -152,10 +154,16 @@ public class MatchService {
         );
     }
 
+    @Transactional(isolation = Isolation.SERIALIZABLE)
     public MatchDTO createDraft(Long organizerId, CreateMatchRequest request){
-        UserEntity organizer=userRepository.findById(organizerId)
+        UserEntity organizer=userRepository.findByIdForUpdate(organizerId)
                 .orElseThrow(()->new EntityNotFoundException("Организатор не найден"));
         disciplineService.assertCanParticipate(organizer);
+        if (request.requestId() != null && !request.requestId().isBlank()) {
+            Optional<MatchEntity> existing = matchRepository.findByCreationRequestId(request.requestId());
+            if (existing.isPresent()) return modelMapper.map(existing.get(), MatchDTO.class);
+        }
+        assertDailyCreateLimit(organizer);
         String format = MatchEntity.normalizeSupportedFormat(request.format());
 
         MatchEntity draftMatch=MatchEntity.builder()
@@ -167,15 +175,19 @@ public class MatchService {
                 .minPlayers(10)
                 .maxPlayers(MatchEntity.maxPlayersForFormat(format))
                 .currentPlayers(1)
-                .status(MatchStatus.DRAFT)
+                .status(MatchStatus.OPEN)
+                .creationRequestId(request.requestId() == null || request.requestId().isBlank()
+                        ? null : request.requestId().trim())
                 .build();
+
+        assertVenueAvailable(draftMatch);
 
         MatchEntity savedMatch=matchRepository.save(draftMatch);
 
         MatchParticipantEntity participant=MatchParticipantEntity.builder()
                 .match(savedMatch)
                 .user(organizer)
-                .position(organizer.getPosition())
+                .position(request.position())
                 .build();
         matchParticipantRepository.save(participant);
         teamBalancerService.autoBalanceTeams(savedMatch.getId());
@@ -203,17 +215,6 @@ public class MatchService {
         match.setStatus(MatchStatus.OPEN);
         MatchEntity savedMatch=matchRepository.save(match);
         matchRepository.flush();
-
-        List<Long> telegramIds=userRepository.findAllByTelegramIdIsNotNull().stream()
-                .map(UserEntity::getTelegramId)
-                .toList();
-
-        String notificationText = String.format(
-                "🔥 Открыт набор на новый матч!\n\n📍 Локация: %s\n⚽ Формат: %s\n\nСкорее заходи в Mini App и занимай место в основном составе!",
-                match.getLocation(),
-                match.getFormat()
-        );
-        notificationService.sendToUsers(telegramIds,notificationText);
 
         return modelMapper.map(savedMatch, MatchDTO.class);
     }
@@ -262,6 +263,9 @@ public class MatchService {
 
         // ПУБЛИКУЕМ СОБЫТИЕ ПЕРЕНОСА, ТОЛЬКО ЕСЛИ БЫЛИ ИЗМЕНЕНИЯ
         if (isRescheduled) {
+            notifyParticipants(matchId, String.format(
+                    "📣 Матч изменён: %s, %s. Проверьте новые время или место в Mini App.",
+                    match.getLocation(), match.getDateTime()));
             eventPublisher.publishEvent(new MatchRescheduledEvent(
                     matchId, oldTime, match.getDateTime(), oldLocation, match.getLocation()
             ));
@@ -270,16 +274,26 @@ public class MatchService {
         return modelMapper.map(savedMatch, MatchDTO.class);
     }
 
+    @Transactional(isolation = Isolation.SERIALIZABLE)
     public void cancelMatch(Long matchId, Long organizerId){
-        MatchEntity match=getMatchAndValidateOrganizer(matchId,organizerId);
+        MatchEntity match=matchRepository.findByIdForUpdate(matchId)
+                .orElseThrow(() -> new EntityNotFoundException("Матч не найден"));
+        if (!match.getOrganizer().getId().equals(organizerId)) {
+            throw new AccessDeniedException("Отменить можно только свой матч");
+        }
+        if (!LocalDateTime.now(MOSCOW_ZONE).isBefore(match.getDateTime())) {
+            throw new IllegalStateException("После начала матча отмена запрещена");
+        }
         if(match.getStatus()==MatchStatus.COMPLETED
                 || match.getStatus()==MatchStatus.RESULT_PENDING
                 || match.getStatus()==MatchStatus.RESULT_DISPUTED
                 || match.getStatus()==MatchStatus.RESULT_REJECTED){
             throw new IllegalStateException("Матч с отправленным протоколом нельзя отменить");
         }
+        assertDailyCancelLimit(match.getOrganizer());
 
         match.setStatus(MatchStatus.CANCELLED);
+        match.setCancelledAt(LocalDateTime.now(MOSCOW_ZONE));
         matchRepository.save(match);
 
         List<Long> telegramIds = matchParticipantRepository.findByMatchId(matchId).stream()
@@ -297,7 +311,7 @@ public class MatchService {
         eventPublisher.publishEvent(new MatchCancelledEvent(matchId));
     }
 
-    public void joinMatch(Long matchId, Long userId){
+    public void joinMatch(Long matchId, Long userId, Position position){
         MatchEntity match=matchRepository.findByIdForUpdate(matchId)
                 .orElseThrow(()->new EntityNotFoundException("Матч не найден"));
 
@@ -323,13 +337,13 @@ public class MatchService {
 
         UserEntity user=userRepository.findById(userId)
                 .orElseThrow(()->new EntityNotFoundException("Пользователь не найден"));
-        requireSelectedPosition(user);
         disciplineService.assertCanParticipate(user);
+        assertPositionAvailable(match, position, null);
 
         MatchParticipantEntity participant=MatchParticipantEntity.builder()
                 .match(match)
                 .user(user)
-                .position(user.getPosition())
+                .position(position)
                 .teamColor(TeamColor.NONE)
                 .build();
         matchParticipantRepository.save(participant);
@@ -370,9 +384,7 @@ public class MatchService {
             MatchParticipantEntity newParticipant=MatchParticipantEntity.builder()
                     .match(match)
                     .user(luckyUser)
-                    .position(waitlistEntry.get().getPosition() != null
-                            ? waitlistEntry.get().getPosition()
-                            : luckyUser.getPosition())
+                    .position(waitlistEntry.get().getPosition())
                     .teamColor(TeamColor.NONE)
                     .build();
             matchParticipantRepository.save(newParticipant);
@@ -391,7 +403,7 @@ public class MatchService {
         teamBalancerService.autoBalanceTeams(matchId);
     }
 
-    public void joinWaitList(Long matchId,Long userId){
+    public void joinWaitList(Long matchId,Long userId, Position position){
         MatchEntity match=matchRepository.findById(matchId)
                 .orElseThrow(()->new EntityNotFoundException("Матч не найден"));
 
@@ -418,22 +430,33 @@ public class MatchService {
 
         UserEntity user=userRepository.findById(userId)
                 .orElseThrow(()->new EntityNotFoundException("Пользователь не найден"));
-        requireSelectedPosition(user);
         disciplineService.assertCanParticipate(user);
+        if (position == null || position == Position.UNKNOWN) {
+            throw new IllegalArgumentException("Выберите игровую позицию");
+        }
 
         MatchWaitlistEntity waitlist=MatchWaitlistEntity.builder()
                 .match(match)
                 .user(user)
-                .position(user.getPosition())
+                .position(position)
                 .build();
 
         matchWaitlistRepository.save(waitlist);
     }
 
-    private void requireSelectedPosition(UserEntity user) {
-        if (user.getPosition() == null || user.getPosition() == Position.UNKNOWN) {
-            throw new IllegalStateException("Сначала выберите в профиле свою позицию на поле");
+    public void changeMyPosition(Long matchId, Long userId, Position position) {
+        MatchEntity match = matchRepository.findByIdForUpdate(matchId)
+                .orElseThrow(() -> new EntityNotFoundException("Матч не найден"));
+        if (match.getStatus() != MatchStatus.OPEN || !LocalDateTime.now(MOSCOW_ZONE).isBefore(match.getDateTime())) {
+            throw new IllegalStateException("Позицию можно менять только до начала матча");
         }
+        MatchParticipantEntity participant = matchParticipantRepository.findByMatchIdAndUserId(matchId, userId)
+                .orElseThrow(() -> new EntityNotFoundException("Вы не записаны на этот матч"));
+        if (participant.getPosition() == position) return;
+        assertPositionAvailable(match, position, participant.getId());
+        participant.setPosition(position);
+        matchParticipantRepository.save(participant);
+        teamBalancerService.autoBalanceTeams(matchId);
     }
 
     public void updateParticipantStatus(Long matchId,
@@ -561,5 +584,43 @@ public class MatchService {
                 .replaceAll("[^\\p{L}\\p{N}]+", " ")
                 .trim()
                 .replaceAll("\\s+", " ");
+    }
+
+    private void assertDailyCreateLimit(UserEntity organizer) {
+        LocalDateTime start = LocalDateTime.now(MOSCOW_ZONE).toLocalDate().atStartOfDay();
+        if (matchRepository.countCreatedByOrganizerBetween(organizer.getId(), start, start.plusDays(1)) >= DAILY_ORGANIZER_LIMIT) {
+            notificationService.sendToUser(organizer.getTelegramId(), "⚠️ Достигнут лимит: не более 3 созданных матчей в сутки (по Москве).");
+            throw new IllegalStateException("Лимит созданий матчей на сегодня исчерпан: максимум 3 в сутки по Москве");
+        }
+    }
+
+    private void assertDailyCancelLimit(UserEntity organizer) {
+        LocalDateTime start = LocalDateTime.now(MOSCOW_ZONE).toLocalDate().atStartOfDay();
+        if (matchRepository.countCancelledByOrganizerBetween(organizer.getId(), start, start.plusDays(1)) >= DAILY_ORGANIZER_LIMIT) {
+            notificationService.sendToUser(organizer.getTelegramId(), "⚠️ Достигнут лимит: не более 3 отмен своих матчей в сутки (по Москве).");
+            throw new IllegalStateException("Лимит отмен на сегодня исчерпан: максимум 3 в сутки по Москве");
+        }
+    }
+
+    private void assertPositionAvailable(MatchEntity match, Position position, Long excludedParticipantId) {
+        if (position == null || position == Position.UNKNOWN) {
+            throw new IllegalArgumentException("Выберите игровую позицию");
+        }
+        int maxForPosition = Math.max(1, match.getMaxPlayers() / 2);
+        long taken = matchParticipantRepository.findByMatchId(match.getId()).stream()
+                .filter(p -> excludedParticipantId == null || !p.getId().equals(excludedParticipantId))
+                .filter(p -> p.getStatus() != ParticipantStatus.NO_SHOW)
+                .filter(p -> p.getPosition() == position)
+                .count();
+        if (taken >= maxForPosition) {
+            throw new IllegalStateException("На этой позиции мест больше нет");
+        }
+    }
+
+    private void notifyParticipants(Long matchId, String message) {
+        notificationService.sendToUsers(matchParticipantRepository.findByMatchId(matchId).stream()
+                .map(participant -> participant.getUser().getTelegramId())
+                .filter(id -> id != null)
+                .toList(), message);
     }
 }
