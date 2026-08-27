@@ -26,9 +26,8 @@ public class TelegramStarsClient {
     private final URI createInvoiceUri;
 
     @Autowired
-    public TelegramStarsClient(ObjectMapper objectMapper,
-                               @Value("${telegram.bot.token}") String botToken) {
-        this(objectMapper, HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(8)).build(),
+    public TelegramStarsClient(@Value("${telegram.bot.token}") String botToken) {
+        this(new ObjectMapper(), HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(8)).build(),
                 URI.create("https://api.telegram.org/bot" + botToken + "/createInvoiceLink"));
     }
 
