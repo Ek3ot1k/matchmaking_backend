@@ -113,6 +113,12 @@ public class MatchEntity {
     @Column(name = "creation_request_id", unique = true, length = 100)
     private String creationRequestId;
 
+    @Column(name = "white_formation", length = 20)
+    private String whiteFormation;
+
+    @Column(name = "dark_formation", length = 20)
+    private String darkFormation;
+
     @Column(name = "result_voting_started_at")
     private LocalDateTime resultVotingStartedAt;
 

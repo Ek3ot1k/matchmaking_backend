@@ -19,6 +19,8 @@ public record MatchDetailsDTO(
         LocalDateTime resultVotingEndsAt,
         Integer resultEligibleVoters,
         Integer resultConfirmationsRequired,
+        String whiteFormation,
+        String darkFormation,
         UserDTO organizer,
         List<MatchParticipantDetailsDTO> participants,
         List<MatchWaitlistDetailsDTO> waitlist

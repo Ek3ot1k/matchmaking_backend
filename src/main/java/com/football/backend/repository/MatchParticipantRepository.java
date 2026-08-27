@@ -20,7 +20,7 @@ public interface MatchParticipantRepository extends JpaRepository<MatchParticipa
     List<MatchParticipantEntity> findByMatchIdAndStatusNot(Long matchId, ParticipantStatus status);
     boolean existsByMatchIdAndTeamColorNot(Long matchId, TeamColor color);
 
-    @Query("select p from MatchParticipantEntity p join fetch p.match m where p.user.id = :userId " +
+    @Query("select p from MatchParticipantEntity p join fetch p.match m join fetch p.user where p.user.id = :userId " +
             "and m.status = 'COMPLETED' and p.status <> 'NO_SHOW' order by m.dateTime desc")
     List<MatchParticipantEntity> findCompletedByUserIdOrderByMatchDateDesc(@Param("userId") Long userId);
 }

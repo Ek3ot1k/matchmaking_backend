@@ -78,7 +78,11 @@ public class MatchService {
     public Page<MatchDTO> getMatches(MatchFilterRequest filter, Pageable pageable){
         Specification<MatchEntity> spec=MatchSpecifications.withFilters(filter);
         Page<MatchEntity> matchPage=matchRepository.findAll(spec,pageable);
-        return matchPage.map(match -> modelMapper.map(match, MatchDTO.class));
+        return matchPage.map(match -> {
+            MatchDTO dto = modelMapper.map(match, MatchDTO.class);
+            dto.setOrganizerId(match.getOrganizer().getId());
+            return dto;
+        });
     }
 
     @Transactional(readOnly = true)
@@ -125,6 +129,8 @@ public class MatchService {
                 match.getResultVotingEndsAt(),
                 match.getResultEligibleVoters(),
                 match.getResultConfirmationsRequired(),
+                match.getWhiteFormation(),
+                match.getDarkFormation(),
                 toUserDTO(match.getOrganizer()),
                 participants,
                 waitlist
@@ -457,6 +463,40 @@ public class MatchService {
         participant.setPosition(position);
         matchParticipantRepository.save(participant);
         teamBalancerService.autoBalanceTeams(matchId);
+    }
+
+    public void updateTeamFormation(Long matchId, Long userId, String formation) {
+        MatchEntity match = matchRepository.findByIdForUpdate(matchId)
+                .orElseThrow(() -> new EntityNotFoundException("Матч не найден"));
+        if (match.getStatus() != MatchStatus.OPEN || !LocalDateTime.now(MOSCOW_ZONE).isBefore(match.getDateTime())) {
+            throw new IllegalStateException("Схему можно выбрать только до начала матча");
+        }
+        String normalized = formation.trim().replace('-', '–');
+        if (!List.of("1–2–1–1", "1–2–2–1", "1–3–1–1", "1–1–3–1", "1–2–3–1", "1–3–2–1", "Свободная").contains(normalized)) {
+            throw new IllegalArgumentException("Выберите схему из предложенного списка");
+        }
+        List<MatchParticipantEntity> participants = matchParticipantRepository
+                .findByMatchIdAndStatusNot(matchId, ParticipantStatus.NO_SHOW);
+        MatchParticipantEntity current = participants.stream()
+                .filter(p -> p.getUser().getId().equals(userId))
+                .findFirst()
+                .orElseThrow(() -> new AccessDeniedException("Схему может выбрать только капитан команды"));
+        if (current.getTeamColor() == TeamColor.WHITE && match.getOrganizer().getId().equals(userId)) {
+            match.setWhiteFormation(normalized);
+        } else if (current.getTeamColor() == TeamColor.DARK && isDarkCaptain(participants, userId)) {
+            match.setDarkFormation(normalized);
+        } else {
+            throw new AccessDeniedException("Схему может выбрать только капитан команды");
+        }
+        matchRepository.save(match);
+    }
+
+    private boolean isDarkCaptain(List<MatchParticipantEntity> participants, Long userId) {
+        return participants.stream()
+                .filter(p -> p.getTeamColor() == TeamColor.DARK)
+                .max(java.util.Comparator.comparingInt(p -> p.getUser().getOvr()))
+                .map(p -> p.getUser().getId().equals(userId))
+                .orElse(false);
     }
 
     public void updateParticipantStatus(Long matchId,

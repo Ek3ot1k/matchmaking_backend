@@ -128,6 +128,16 @@ public class MatchController {
         return ResponseEntity.ok("Позиция в матче обновлена");
     }
 
+    @PatchMapping("/{matchId}/formation")
+    public ResponseEntity<String> updateTeamFormation(
+            @PathVariable Long matchId,
+            @AuthenticationPrincipal UserEntityDetails userDetails,
+            @Valid @RequestBody UpdateTeamFormationRequest request
+    ) {
+        matchService.updateTeamFormation(matchId, userDetails.getUserId(), request.formation());
+        return ResponseEntity.ok("Схема команды обновлена");
+    }
+
     @PostMapping("/{id}/balance")
     public ResponseEntity<String> balanceTeams(
             @PathVariable("id") Long matchId,

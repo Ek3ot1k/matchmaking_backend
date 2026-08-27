@@ -112,9 +112,14 @@ public class UserService {
 
         List<MatchParticipantEntity> completedParticipations = participantRepository
                 .findCompletedByUserIdOrderByMatchDateDesc(userId);
+        // Старые участия могли быть созданы до появления поля position. Для них
+        // используем историческую позицию профиля как совместимый fallback,
+        // новые записи всегда берут снимок непосредственно из участника матча.
         Map<Position, Long> positionCounts = completedParticipations.stream()
-                .filter(p -> p.getPosition() != null && p.getPosition() != Position.UNKNOWN)
-                .collect(java.util.stream.Collectors.groupingBy(MatchParticipantEntity::getPosition,
+                .map(p -> p.getPosition() != null && p.getPosition() != Position.UNKNOWN
+                        ? p.getPosition() : p.getUser().getPosition())
+                .filter(position -> position != null && position != Position.UNKNOWN)
+                .collect(java.util.stream.Collectors.groupingBy(java.util.function.Function.identity(),
                         () -> new EnumMap<>(Position.class), java.util.stream.Collectors.counting()));
         Position mainPosition = positionCounts.entrySet().stream()
                 .max(Comparator.<Map.Entry<Position, Long>>comparingLong(Map.Entry::getValue)

@@ -27,5 +27,6 @@ public class MatchDTO {
     private Integer resultConfirmationsRequired;
 
     // Организатор матча
+    private Long organizerId;
     private UserDTO organizer;
 }
