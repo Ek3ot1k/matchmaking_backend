@@ -21,7 +21,9 @@ public record MatchDetailsDTO(
         Integer resultConfirmationsRequired,
         String whiteFormation,
         String darkFormation,
+        String chatLink,
         UserDTO organizer,
         List<MatchParticipantDetailsDTO> participants,
-        List<MatchWaitlistDetailsDTO> waitlist
+        List<MatchWaitlistDetailsDTO> waitlist,
+        List<MatchPlayerReportDTO> playerStats
 ) {}

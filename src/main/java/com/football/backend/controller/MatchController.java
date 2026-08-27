@@ -78,6 +78,25 @@ public class MatchController {
         return ResponseEntity.ok("Вы успешно отписались от матча");
     }
 
+    @PostMapping("/{id}/check-in")
+    public ResponseEntity<String> checkIn(
+            @PathVariable("id") Long matchId,
+            @AuthenticationPrincipal UserEntityDetails userDetails
+    ) {
+        matchService.checkIn(matchId, userDetails.getUserId());
+        return ResponseEntity.ok("Участие подтверждено");
+    }
+
+    @PostMapping("/{matchId}/participants/{userId}/release")
+    public ResponseEntity<String> releaseUnconfirmedParticipant(
+            @PathVariable Long matchId,
+            @PathVariable Long userId,
+            @AuthenticationPrincipal UserEntityDetails userDetails
+    ) {
+        matchService.releaseUnconfirmedParticipant(matchId, userId, userDetails.getUserId());
+        return ResponseEntity.ok("Место передано игроку из листа ожидания");
+    }
+
     @PostMapping("/{id}/waitlist/join")
     public ResponseEntity<String> joinWaitList(
             @PathVariable("id") Long matchId,

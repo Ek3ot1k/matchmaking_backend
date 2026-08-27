@@ -24,6 +24,9 @@ public record CreateMatchRequest(
         @NotNull(message = "Выберите позицию для этого матча")
         Position position,
 
+        @Size(max = 500, message = "Ссылка на чат слишком длинная")
+        String chatLink,
+
         @Size(max = 100, message = "Некорректный ключ запроса")
         String requestId
 ) {}

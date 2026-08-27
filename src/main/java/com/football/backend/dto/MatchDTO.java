@@ -25,6 +25,7 @@ public class MatchDTO {
     private LocalDateTime resultVotingEndsAt;
     private Integer resultEligibleVoters;
     private Integer resultConfirmationsRequired;
+    private String chatLink;
 
     // Организатор матча
     private Long organizerId;

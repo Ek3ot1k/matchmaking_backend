@@ -119,6 +119,10 @@ public class MatchEntity {
     @Column(name = "dark_formation", length = 20)
     private String darkFormation;
 
+    /** Необязательная ссылка-приглашение в чат конкретного матча. */
+    @Column(name = "chat_link", length = 500)
+    private String chatLink;
+
     @Column(name = "result_voting_started_at")
     private LocalDateTime resultVotingStartedAt;
 

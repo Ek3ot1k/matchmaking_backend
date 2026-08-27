@@ -24,8 +24,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.text.Normalizer;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Map;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -115,6 +117,25 @@ public class MatchService {
                 ))
                 .toList();
 
+        Map<Long, MatchParticipantEntity> participantsByUserId = matchParticipantRepository.findByMatchId(matchId)
+                .stream()
+                .collect(Collectors.toMap(participant -> participant.getUser().getId(), participant -> participant));
+        List<MatchPlayerReportDTO> playerStats = playerStatsRepository.findByMatchId(matchId).stream()
+                .map(stat -> {
+                    MatchParticipantEntity participant = participantsByUserId.get(stat.getUser().getId());
+                    return new MatchPlayerReportDTO(
+                            stat.getUser().getId(),
+                            toUserDTO(stat.getUser()),
+                            participant == null ? TeamColor.NONE : participant.getTeamColor(),
+                            participant == null ? null : participant.getPosition(),
+                            stat.getGoals(),
+                            stat.getAssists(),
+                            stat.getMvpVotes(),
+                            stat.getMatchRating()
+                    );
+                })
+                .toList();
+
         return new MatchDetailsDTO(
                 match.getId(),
                 match.getFormat(),
@@ -131,9 +152,11 @@ public class MatchService {
                 match.getResultConfirmationsRequired(),
                 match.getWhiteFormation(),
                 match.getDarkFormation(),
+                match.getChatLink(),
                 toUserDTO(match.getOrganizer()),
                 participants,
-                waitlist
+                waitlist,
+                playerStats
         );
     }
 
@@ -182,6 +205,7 @@ public class MatchService {
                 .maxPlayers(MatchEntity.maxPlayersForFormat(format))
                 .currentPlayers(1)
                 .status(MatchStatus.OPEN)
+                .chatLink(normalizeChatLink(request.chatLink()))
                 .creationRequestId(request.requestId() == null || request.requestId().isBlank()
                         ? null : request.requestId().trim())
                 .build();
@@ -258,6 +282,9 @@ public class MatchService {
                 throw new IllegalArgumentException("Нельзя сделать лимит меньше, чем уже записано игроков");
             }
             match.setMaxPlayers(request.maxPlayers());
+        }
+        if (request.chatLink() != null) {
+            match.setChatLink(normalizeChatLink(request.chatLink()));
         }
 
         if (match.getStatus() == MatchStatus.OPEN || match.getStatus() == MatchStatus.IN_PROGRESS) {
@@ -380,33 +407,47 @@ public class MatchService {
 
 
         matchParticipantRepository.delete(participant);
-        Optional<MatchWaitlistEntity> waitlistEntry=matchWaitlistRepository
-                .findFirstByMatchIdOrderByJoinedAtAsc(matchId);
-
-        if(waitlistEntry.isPresent()){
-            // Кто-то есть в очереди. Переводим счастливчика в основу
-            UserEntity luckyUser=waitlistEntry.get().getUser();
-
-            MatchParticipantEntity newParticipant=MatchParticipantEntity.builder()
-                    .match(match)
-                    .user(luckyUser)
-                    .position(waitlistEntry.get().getPosition())
-                    .teamColor(TeamColor.NONE)
-                    .build();
-            matchParticipantRepository.save(newParticipant);
-            matchWaitlistRepository.delete(waitlistEntry.get());
-
-            String text = String.format(
-                    "🎉 Отличные новости! Кто-то отменил запись, и вы автоматически переведены из листа ожидания в основной состав!\n\n📍 Арена: %s\n⏳ Не забудьте подтвердить участие в Mini App.",
-                    match.getLocation()
-            );
-            notificationService.sendToUser(luckyUser.getTelegramId(), text);
-        }else{
+        if (!promoteWaitlistedPlayer(match)) {
             match.setCurrentPlayers(match.getCurrentPlayers()-1);
         }
         matchRepository.save(match);
 
         teamBalancerService.autoBalanceTeams(matchId);
+    }
+
+    /**
+     * Организатор может заменить только игрока, который не подтвердил участие.
+     * Это доступно до старта и исключительно когда в очереди действительно есть замена.
+     */
+    public void releaseUnconfirmedParticipant(Long matchId, Long targetUserId, Long organizerId) {
+        MatchEntity match = matchRepository.findByIdForUpdate(matchId)
+                .orElseThrow(() -> new EntityNotFoundException("Матч не найден"));
+        if (!match.getOrganizer().getId().equals(organizerId)) {
+            throw new AccessDeniedException("Заменить игрока может только организатор");
+        }
+        if (match.getStatus() != MatchStatus.OPEN || !LocalDateTime.now(MOSCOW_ZONE).isBefore(match.getDateTime())) {
+            throw new IllegalStateException("Заменять неподтвердившихся можно только до начала матча");
+        }
+        if (targetUserId.equals(organizerId)) {
+            throw new IllegalStateException("Организатора нельзя заменить");
+        }
+        MatchParticipantEntity participant = matchParticipantRepository.findByMatchIdAndUserId(matchId, targetUserId)
+                .orElseThrow(() -> new EntityNotFoundException("Игрок не найден в основном составе"));
+        if (participant.getStatus() == ParticipantStatus.CONFIRMED) {
+            throw new IllegalStateException("Игрок подтвердил участие — его место нельзя освободить");
+        }
+        if (!matchWaitlistRepository.findFirstByMatchIdOrderByJoinedAtAsc(matchId).isPresent()) {
+            throw new IllegalStateException("В листе ожидания пока нет замены");
+        }
+
+        matchParticipantRepository.delete(participant);
+        promoteWaitlistedPlayer(match);
+        matchRepository.save(match);
+        teamBalancerService.autoBalanceTeams(matchId);
+        notificationService.sendToUser(participant.getUser().getTelegramId(), String.format(
+                "ℹ️ Место в матче на площадке %s освобождено, потому что участие не было подтверждено. Можно выбрать другой матч в Mini App.",
+                match.getLocation()
+        ));
     }
 
     public void joinWaitList(Long matchId,Long userId, Position position){
@@ -463,6 +504,24 @@ public class MatchService {
         participant.setPosition(position);
         matchParticipantRepository.save(participant);
         teamBalancerService.autoBalanceTeams(matchId);
+    }
+
+    /** Игрок самостоятельно подтверждает, что придёт на матч. Повторный клик безопасен. */
+    public void checkIn(Long matchId, Long userId) {
+        MatchEntity match = matchRepository.findByIdForUpdate(matchId)
+                .orElseThrow(() -> new EntityNotFoundException("Матч не найден"));
+        if (match.getStatus() != MatchStatus.OPEN || !LocalDateTime.now(MOSCOW_ZONE).isBefore(match.getDateTime())) {
+            throw new IllegalStateException("Подтвердить участие можно только до начала активного матча");
+        }
+        MatchParticipantEntity participant = matchParticipantRepository.findByMatchIdAndUserId(matchId, userId)
+                .orElseThrow(() -> new EntityNotFoundException("Вы не записаны на этот матч"));
+        if (participant.getStatus() == ParticipantStatus.NO_SHOW) {
+            throw new IllegalStateException("Нельзя подтвердить участие после отметки о неявке");
+        }
+        if (participant.getStatus() != ParticipantStatus.CONFIRMED) {
+            participant.setStatus(ParticipantStatus.CONFIRMED);
+            matchParticipantRepository.save(participant);
+        }
     }
 
     public void updateTeamFormation(Long matchId, Long userId, String formation) {
@@ -616,6 +675,27 @@ public class MatchService {
         }
     }
 
+    private boolean promoteWaitlistedPlayer(MatchEntity match) {
+        Optional<MatchWaitlistEntity> waitlistEntry = matchWaitlistRepository
+                .findFirstByMatchIdOrderByJoinedAtAsc(match.getId());
+        if (waitlistEntry.isEmpty()) return false;
+
+        UserEntity luckyUser = waitlistEntry.get().getUser();
+        MatchParticipantEntity newParticipant = MatchParticipantEntity.builder()
+                .match(match)
+                .user(luckyUser)
+                .position(waitlistEntry.get().getPosition())
+                .teamColor(TeamColor.NONE)
+                .build();
+        matchParticipantRepository.save(newParticipant);
+        matchWaitlistRepository.delete(waitlistEntry.get());
+        notificationService.sendToUser(luckyUser.getTelegramId(), String.format(
+                "🎉 Отличные новости! Вы автоматически переведены из листа ожидания в основной состав!\n\n📍 Арена: %s\n⏳ Не забудьте подтвердить участие в Mini App.",
+                match.getLocation()
+        ));
+        return true;
+    }
+
     private String normalizeLocation(String location) {
         if (location == null) return "";
         return Normalizer.normalize(location, Normalizer.Form.NFKC)
@@ -624,6 +704,16 @@ public class MatchService {
                 .replaceAll("[^\\p{L}\\p{N}]+", " ")
                 .trim()
                 .replaceAll("\\s+", " ");
+    }
+
+    private String normalizeChatLink(String chatLink) {
+        if (chatLink == null || chatLink.isBlank()) return null;
+        String normalized = chatLink.trim();
+        String lowerCase = normalized.toLowerCase();
+        if (!lowerCase.startsWith("https://t.me/") && !lowerCase.startsWith("https://telegram.me/")) {
+            throw new IllegalArgumentException("Укажите ссылку-приглашение Telegram в формате https://t.me/...");
+        }
+        return normalized;
     }
 
     private void assertDailyCreateLimit(UserEntity organizer) {
