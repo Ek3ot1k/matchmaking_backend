@@ -2,7 +2,9 @@
 
 Backend для Telegram Mini App, в котором игроки находят футбольные матчи, собирают команды и ведут подтверждённую статистику. Проект отвечает за авторизацию через Telegram, правила матчей, рейтинги, голосования, платежи Telegram Stars и уведомления бота.
 
-**Production:** [Mini App](https://football-league-ruby.vercel.app) · [API](https://matchmaking-backend-7ifg.onrender.com) · [OpenAPI / Swagger](https://matchmaking-backend-7ifg.onrender.com/swagger-ui/index.html)
+**Production:** [Telegram-бот @football_matchmaker_bot](https://t.me/football_matchmaker_bot) · [Mini App](https://football-league-ruby.vercel.app) · [API](https://matchmaking-backend-7ifg.onrender.com) · [OpenAPI / Swagger](https://matchmaking-backend-7ifg.onrender.com/swagger-ui/index.html)
+
+Чтобы начать пользоваться сервисом, откройте [@football_matchmaker_bot](https://t.me/football_matchmaker_bot), отправьте `/start` и нажмите «Открыть Mini App».
 
 ## Что умеет приложение
 
@@ -166,4 +168,3 @@ Backend рассчитан на Docker-деплой в Render:
 - Не коммитьте `.env`, токены Telegram, JWT-секреты и данные production-БД.
 - Любой результат становится официальным только после голосования участников.
 - Накрутка статистики ведёт к перманентной блокировке.
-
