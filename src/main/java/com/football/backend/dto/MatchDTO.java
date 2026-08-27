@@ -11,6 +11,8 @@ public class MatchDTO {
 
     private String format;          // Формат: "5×5", "6×6" или "7×7"
     private String location;        // Адрес поля/манежа
+    private Double latitude;
+    private Double longitude;
     private LocalDateTime dateTime; // Дата и время проведения игры
     private Integer duration;       // Фиксированная длительность: 15 минут
 

@@ -12,6 +12,16 @@ public record CreateMatchRequest(
         @NotBlank(message = "Локация не может быть пустой")
         String location,
 
+        @NotNull(message = "Поставьте метку на карте")
+        @DecimalMin(value = "-90.0", message = "Некорректная широта")
+        @DecimalMax(value = "90.0", message = "Некорректная широта")
+        Double latitude,
+
+        @NotNull(message = "Поставьте метку на карте")
+        @DecimalMin(value = "-180.0", message = "Некорректная долгота")
+        @DecimalMax(value = "180.0", message = "Некорректная долгота")
+        Double longitude,
+
         @NotNull(message = "Укажите дату и время матча")
         @Future(message = "Нельзя создать матч в прошлом")
         LocalDateTime dateTime,

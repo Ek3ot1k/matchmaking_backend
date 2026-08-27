@@ -9,6 +9,8 @@ public record MatchDetailsDTO(
         Long id,
         String format,
         String location,
+        Double latitude,
+        Double longitude,
         LocalDateTime dateTime,
         Integer duration,
         Integer currentPlayers,

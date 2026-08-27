@@ -5,6 +5,7 @@ import com.football.backend.model.ParticipantStatus;
 import com.football.backend.security.UserEntityDetails;
 import com.football.backend.service.MatchService;
 import com.football.backend.service.MatchResultService;
+import com.football.backend.service.MatchChatService;
 import com.football.backend.service.TeamBalancerService;
 import com.football.backend.service.VoteService;
 import jakarta.validation.Valid;
@@ -21,15 +22,18 @@ public class MatchController {
     private final TeamBalancerService teamBalancerService;
     private final VoteService voteService;
     private final MatchResultService matchResultService;
+    private final MatchChatService matchChatService;
 
     public MatchController(MatchService matchService,
                            TeamBalancerService teamBalancerService,
                            VoteService voteService,
-                           MatchResultService matchResultService) {
+                           MatchResultService matchResultService,
+                           MatchChatService matchChatService) {
         this.matchService = matchService;
         this.teamBalancerService = teamBalancerService;
         this.voteService = voteService;
         this.matchResultService = matchResultService;
+        this.matchChatService = matchChatService;
     }
 
     @GetMapping
@@ -95,6 +99,23 @@ public class MatchController {
     ) {
         matchService.releaseUnconfirmedParticipant(matchId, userId, userDetails.getUserId());
         return ResponseEntity.ok("Место передано игроку из листа ожидания");
+    }
+
+    @GetMapping("/{id}/chat")
+    public java.util.List<MatchChatMessageDTO> getChatMessages(
+            @PathVariable("id") Long matchId,
+            @AuthenticationPrincipal UserEntityDetails userDetails
+    ) {
+        return matchChatService.getMessages(matchId, userDetails.getUserId());
+    }
+
+    @PostMapping("/{id}/chat")
+    public MatchChatMessageDTO sendChatMessage(
+            @PathVariable("id") Long matchId,
+            @AuthenticationPrincipal UserEntityDetails userDetails,
+            @Valid @RequestBody SendMatchChatMessageRequest request
+    ) {
+        return matchChatService.send(matchId, userDetails.getUserId(), request.text());
     }
 
     @PostMapping("/{id}/waitlist/join")

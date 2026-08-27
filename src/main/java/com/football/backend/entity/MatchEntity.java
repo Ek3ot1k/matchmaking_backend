@@ -42,6 +42,12 @@ public class MatchEntity {
     @Column(name = "location",nullable = false)
     private String location;
 
+    @Column(name = "latitude")
+    private Double latitude;
+
+    @Column(name = "longitude")
+    private Double longitude;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status",nullable = false)
     private MatchStatus status;

@@ -24,10 +24,6 @@ public class PaymentService {
     private final TransactionRepository transactionRepository;
     private final DefaultAbsSender telegramBot;
 
-    // Для Telegram Stars токен провайдера должен быть пустой строкой.
-    @Value("${telegram.payment.provider.token:}")
-    private String providerToken;
-
     public PaymentService(UserRepository userRepository,
                           TransactionRepository transactionRepository,
                           @Lazy DefaultAbsSender telegramBot) {
@@ -47,9 +43,9 @@ public class PaymentService {
 
         CreateInvoiceLink createInvoiceLink = CreateInvoiceLink.builder()
                 .title("VIP Статус на 30 дней")
-                .description("Золотая карточка профиля и VIP-оформление на 30 дней")
+                .description("Золотая FUT-карточка, VIP-корона, расширенная статистика и оформление на 30 дней")
                 .payload("VIP_30_DAYS_" + userId) // Важный параметр! По нему мы поймем, за что заплатили
-                .providerToken(providerToken)
+                .providerToken("")
                 .currency("XTR") // XTR = Telegram Stars
                 .price(new LabeledPrice("VIP 30 Дней", 100)) // 100 звезд
                 .build();
@@ -78,6 +74,11 @@ public class PaymentService {
 
         UserEntity user = userRepository.findByTelegramId(telegramUserId)
                 .orElseThrow(() -> new EntityNotFoundException("Пользователь не найден"));
+
+        if (!"XTR".equals(currency) || totalAmount == null || totalAmount != 100
+                || !("VIP_30_DAYS_" + user.getId()).equals(payload)) {
+            throw new IllegalArgumentException("Некорректные параметры VIP-платежа");
+        }
 
         TransactionEntity transaction = TransactionEntity.builder()
                 .user(user)

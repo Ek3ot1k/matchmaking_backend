@@ -140,6 +140,8 @@ public class MatchService {
                 match.getId(),
                 match.getFormat(),
                 match.getLocation(),
+                match.getLatitude(),
+                match.getLongitude(),
                 match.getDateTime(),
                 match.getDuration(),
                 match.getCurrentPlayers(),
@@ -199,6 +201,8 @@ public class MatchService {
                 .organizer(organizer)
                 .format(format)
                 .location(request.location())
+                .latitude(request.latitude())
+                .longitude(request.longitude())
                 .dateTime(request.dateTime())
                 .duration(MatchEntity.MATCH_DURATION_MINUTES)
                 .minPlayers(10)
@@ -268,6 +272,12 @@ public class MatchService {
         if (request.location() != null && !request.location().isBlank() && !request.location().equals(oldLocation)) {
             match.setLocation(request.location());
             isRescheduled = true;
+        }
+        if (request.latitude() != null) {
+            match.setLatitude(request.latitude());
+        }
+        if (request.longitude() != null) {
+            match.setLongitude(request.longitude());
         }
         if (request.dateTime() != null && !request.dateTime().equals(oldTime)) {
             match.setDateTime(request.dateTime());
