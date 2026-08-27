@@ -6,14 +6,8 @@ import com.football.backend.model.TransactionStatus;
 import com.football.backend.repository.TransactionRepository;
 import com.football.backend.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.telegram.telegrambots.bots.DefaultAbsSender;
-import org.telegram.telegrambots.meta.api.methods.invoices.CreateInvoiceLink;
-import org.telegram.telegrambots.meta.api.objects.payments.LabeledPrice;
-import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
-import org.springframework.context.annotation.Lazy;
 
 import java.time.LocalDateTime;
 
@@ -22,14 +16,14 @@ public class PaymentService {
 
     private final UserRepository userRepository;
     private final TransactionRepository transactionRepository;
-    private final DefaultAbsSender telegramBot;
+    private final TelegramStarsClient telegramStarsClient;
 
     public PaymentService(UserRepository userRepository,
                           TransactionRepository transactionRepository,
-                          @Lazy DefaultAbsSender telegramBot) {
+                          TelegramStarsClient telegramStarsClient) {
         this.userRepository = userRepository;
         this.transactionRepository = transactionRepository;
-        this.telegramBot = telegramBot;
+        this.telegramStarsClient = telegramStarsClient;
     }
 
     /**
@@ -41,20 +35,7 @@ public class PaymentService {
             throw new EntityNotFoundException("Пользователь не найден");
         }
 
-        CreateInvoiceLink createInvoiceLink = CreateInvoiceLink.builder()
-                .title("VIP Статус на 30 дней")
-                .description("Золотая FUT-карточка, VIP-корона, расширенная статистика и оформление на 30 дней")
-                .payload("VIP_30_DAYS_" + userId) // Важный параметр! По нему мы поймем, за что заплатили
-                .providerToken("")
-                .currency("XTR") // XTR = Telegram Stars
-                .price(new LabeledPrice("VIP 30 Дней", 100)) // 100 звезд
-                .build();
-
-        try {
-            return telegramBot.execute(createInvoiceLink);
-        } catch (TelegramApiException e) {
-            throw new RuntimeException("Ошибка при генерации ссылки на оплату", e);
-        }
+        return telegramStarsClient.createVipInvoice(userId);
     }
 
     /**
